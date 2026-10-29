@@ -49,7 +49,7 @@ Not changed yet: the `x-github-client` and `x-github-desktop-auth` URL protocols
   list/add/rename/delete).
 
 ### Medium
-- [ ] Multiple remotes: list/add/rename/remove remotes, fetch/push to a chosen remote.
+- [x] Multiple remotes: Remotes tab in repository settings (add/rename/change URL/remove, fetch one or all, push to a chosen remote).
 - [ ] Integrated terminal: interactive shell (xterm.js + node-pty) in the repository folder.
 - [ ] Visual branch comparison: ahead/behind, commits and diff between any two branches.
 - [ ] Full interactive rebase: editor with pick / reword / edit / squash / fixup /
