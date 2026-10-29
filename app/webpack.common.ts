@@ -6,7 +6,9 @@ import { getReplacements } from './app-info'
 import { getDistArchitecture } from '../script/dist-info'
 import { getKoffiWebpackConfig } from '../script/webpack-koffi'
 
-export const externals = ['7zip']
+// Arbor: node-pty ships native binaries and helper scripts, so it is loaded
+// from node_modules at runtime instead of being bundled.
+export const externals = ['7zip', 'node-pty']
 
 const outputDir = 'out'
 export const replacements = getReplacements()
