@@ -244,6 +244,10 @@ import {
   HookProgress,
   git,
 } from '../git'
+// Arbor: remote management. The operations upstream already exposes are
+// re-used as-is, renaming a remote lives in the Arbor Git layer.
+import { removeRemote, setRemoteURL } from '../git'
+import { renameRemote } from '../arbor/git/remote'
 import {
   installGlobalLFSFilters,
   installLFSHooks,
@@ -4414,6 +4418,158 @@ export class AppStore extends TypedBaseStore<IAppState> {
   // worktree list in sync after Arbor-only operations (lock, unlock, prune).
   public async _arborRefreshWorktrees(repository: Repository): Promise<void> {
     return this._refreshWorktrees(repository)
+  }
+
+  // Arbor: manage multiple remotes. The four mutations below apply the change
+  // to the repository, reload the remote list and refresh the repository so
+  // the UI picks up the new configuration.
+
+  /** Add a remote to the repository and refresh the repository. */
+  public async _arborAddRemote(
+    repository: Repository,
+    name: string,
+    url: string
+  ): Promise<void> {
+    const gitStore = this.gitStoreCache.get(repository)
+    await addRemote(repository, name, url)
+    await gitStore.loadRemotes()
+    await this._refreshRepository(repository)
+  }
+
+  /** Remove a remote from the repository and refresh the repository. */
+  public async _arborRemoveRemote(
+    repository: Repository,
+    name: string
+  ): Promise<void> {
+    const gitStore = this.gitStoreCache.get(repository)
+    await removeRemote(repository, name)
+    await gitStore.loadRemotes()
+    await this._refreshRepository(repository)
+  }
+
+  /** Rename a remote of the repository and refresh the repository. */
+  public async _arborRenameRemote(
+    repository: Repository,
+    oldName: string,
+    newName: string
+  ): Promise<void> {
+    const gitStore = this.gitStoreCache.get(repository)
+    await renameRemote(repository, oldName, newName)
+    await gitStore.loadRemotes()
+    await this._refreshRepository(repository)
+  }
+
+  /** Change the URL of a remote and refresh the repository. */
+  public async _arborSetRemoteUrl(
+    repository: Repository,
+    name: string,
+    url: string
+  ): Promise<void> {
+    const gitStore = this.gitStoreCache.get(repository)
+    await setRemoteURL(repository, name, url)
+    await gitStore.loadRemotes()
+    await this._refreshRepository(repository)
+  }
+
+  /**
+   * Fetch the given remotes, or every configured remote when `remoteNames`
+   * is 'all'. Uses the same progress and refresh flow as `_fetchRemote`.
+   */
+  public async _arborFetchRemotes(
+    repository: Repository,
+    remoteNames: ReadonlyArray<string> | 'all'
+  ): Promise<void> {
+    const gitStore = this.gitStoreCache.get(repository)
+
+    const remotes: ReadonlyArray<IRemote> =
+      remoteNames === 'all'
+        ? gitStore.remotes
+        : remoteNames.map(name => {
+            const remote = gitStore.remotes.find(r => r.name === name)
+            if (remote === undefined) {
+              throw new Error(
+                `The remote '${name}' does not exist in this repository.`
+              )
+            }
+            return remote
+          })
+
+    return this.withRefreshedGitHubRepository(repository, repository => {
+      return this.performFetch(repository, FetchType.UserInitiatedTask, [
+        ...remotes,
+      ])
+    })
+  }
+
+  /**
+   * Push the current branch to the given remote.
+   *
+   * When `setUpstream` is true the push also makes the remote branch the
+   * upstream of the local branch, otherwise the existing upstream is left
+   * untouched.
+   */
+  public async _arborPushToRemote(
+    repository: Repository,
+    remoteName: string,
+    setUpstream: boolean
+  ): Promise<void> {
+    return this.withRefreshedGitHubRepository(repository, async repository => {
+      const gitStore = this.gitStoreCache.get(repository)
+      const remote = gitStore.remotes.find(r => r.name === remoteName)
+
+      if (remote === undefined) {
+        throw new Error(
+          `The remote '${remoteName}' does not exist in this repository.`
+        )
+      }
+
+      return this.withPushPullFetch(repository, async () => {
+        const branch = this.getBranchToPush(repository)
+
+        if (branch === undefined) {
+          return
+        }
+
+        const pushTitle = `Pushing to ${remoteName}`
+        const retryAction: RetryAction = {
+          type: RetryActionType.Push,
+          repository,
+        }
+
+        try {
+          await gitStore.performFailableOperation(
+            async () => {
+              let aborted = false
+              await pushRepo(
+                repository,
+                remote,
+                branch.name,
+                setUpstream ? null : branch.name,
+                gitStore.tagsToPush,
+                { onHookFailure: this.onHookFailure(() => (aborted = true)) },
+                progress => {
+                  this.updatePushPullFetchProgress(repository, {
+                    ...progress,
+                    title: pushTitle,
+                  })
+                }
+              ).catch(err => (aborted ? undefined : Promise.reject(err)))
+
+              if (aborted) {
+                return
+              }
+
+              gitStore.clearTagsToPush()
+
+              await this._refreshRepository(repository)
+            },
+            { retryAction }
+          )
+        } finally {
+          this.updatePushPullFetchProgress(repository, null)
+        }
+      })
+    })
   }
 
   public _updateCommitOptions(

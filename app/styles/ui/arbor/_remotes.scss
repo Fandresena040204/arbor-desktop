@@ -1,0 +1,158 @@
+// Arbor: styles for the repository settings Remotes tab manager.
+
+.arbor-remotes-settings {
+  .arbor-remotes-loading {
+    padding: var(--spacing-double);
+    color: var(--text-secondary-color);
+    text-align: center;
+  }
+
+  .arbor-no-remotes {
+    padding: var(--spacing-double);
+    text-align: center;
+
+    p {
+      margin-bottom: var(--spacing);
+    }
+
+    button {
+      margin-top: var(--spacing);
+    }
+  }
+
+  .arbor-remotes-list {
+    .arbor-remotes-toolbar {
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: var(--spacing);
+      gap: var(--spacing);
+    }
+  }
+
+  .arbor-remote-row {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--spacing);
+    border-bottom: var(--base-border);
+    gap: var(--spacing);
+
+    &:last-child {
+      border-bottom: none;
+    }
+
+    .arbor-remote-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .arbor-remote-name {
+      font-weight: var(--font-weight-semibold);
+      margin-bottom: var(--spacing-half);
+      @include ellipsis;
+    }
+
+    .arbor-remote-url {
+      font-family: var(--font-family-monospace);
+      font-size: var(--font-size-sm);
+      color: var(--text-secondary-color);
+      @include ellipsis;
+    }
+
+    .arbor-remote-actions {
+      display: flex;
+      flex-direction: row;
+      gap: var(--spacing-half);
+      flex-shrink: 0;
+    }
+
+    .arbor-remote-confirm {
+      margin-right: var(--spacing);
+      color: var(--text-secondary-color);
+      white-space: nowrap;
+    }
+
+    .arbor-remote-edit {
+      display: flex;
+      flex-direction: column;
+      gap: var(--spacing);
+      flex: 1;
+      min-width: 0;
+
+      .text-box-component {
+        width: 100%;
+      }
+    }
+
+    .arbor-remote-error {
+      margin-top: var(--spacing-half);
+      color: var(--form-error-text-color);
+      font-size: var(--font-size-sm);
+    }
+  }
+
+  .arbor-add-remote {
+    margin-top: var(--spacing-double);
+    padding-top: var(--spacing-double);
+    border-top: var(--base-border);
+
+    .arbor-add-remote-title {
+      font-weight: var(--font-weight-semibold);
+      margin-bottom: var(--spacing);
+    }
+
+    .text-box-component {
+      margin-bottom: var(--spacing);
+    }
+
+    .arbor-remote-error {
+      margin-bottom: var(--spacing);
+    }
+
+    button {
+      margin-top: var(--spacing-half);
+    }
+  }
+}
+
+// Ensure the dialog has enough height for the remotes manager.
+#repository-settings {
+  .arbor-remotes-settings {
+    min-height: 350px;
+  }
+}
+
+// Arbor: keep the manager inside the settings dialog (no horizontal overflow).
+.arbor-remotes-settings {
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: hidden;
+
+  .arbor-remotes-toolbar,
+  .arbor-remote-row,
+  .arbor-remote-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-half);
+    align-items: center;
+  }
+
+  .arbor-remote-info {
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+
+  .arbor-remote-url {
+    overflow-wrap: anywhere;
+  }
+
+  .text-box-component,
+  input {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+}

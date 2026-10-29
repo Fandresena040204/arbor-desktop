@@ -1125,6 +1125,82 @@ export class Dispatcher {
     }
   }
 
+  // Arbor: manage multiple remotes. Each method returns whether it succeeded,
+  // errors are surfaced to the user via `postError`.
+  private async arborRun(fn: () => Promise<void>): Promise<boolean> {
+    try {
+      await fn()
+      return true
+    } catch (e) {
+      this.postError(e)
+      return false
+    }
+  }
+
+  /** Add a remote to the repository. */
+  public arborAddRemote(
+    repository: Repository,
+    name: string,
+    url: string
+  ): Promise<boolean> {
+    return this.arborRun(() =>
+      this.appStore._arborAddRemote(repository, name, url)
+    )
+  }
+
+  /** Remove a remote from the repository. */
+  public arborRemoveRemote(
+    repository: Repository,
+    name: string
+  ): Promise<boolean> {
+    return this.arborRun(() =>
+      this.appStore._arborRemoveRemote(repository, name)
+    )
+  }
+
+  /** Rename a remote of the repository. */
+  public arborRenameRemote(
+    repository: Repository,
+    oldName: string,
+    newName: string
+  ): Promise<boolean> {
+    return this.arborRun(() =>
+      this.appStore._arborRenameRemote(repository, oldName, newName)
+    )
+  }
+
+  /** Change the URL of a remote. */
+  public arborSetRemoteUrl(
+    repository: Repository,
+    name: string,
+    url: string
+  ): Promise<boolean> {
+    return this.arborRun(() =>
+      this.appStore._arborSetRemoteUrl(repository, name, url)
+    )
+  }
+
+  /** Fetch the given remotes, or all remotes. */
+  public arborFetchRemotes(
+    repository: Repository,
+    remoteNames: ReadonlyArray<string> | 'all'
+  ): Promise<boolean> {
+    return this.arborRun(() =>
+      this.appStore._arborFetchRemotes(repository, remoteNames)
+    )
+  }
+
+  /** Push the current branch to the given remote. */
+  public arborPushToRemote(
+    repository: Repository,
+    remoteName: string,
+    setUpstream: boolean
+  ): Promise<boolean> {
+    return this.arborRun(() =>
+      this.appStore._arborPushToRemote(repository, remoteName, setUpstream)
+    )
+  }
+
   /**
    * Set the width of the Push/Push toolbar button to the given value.
    * This affects the toolbar button and its dropdown element.

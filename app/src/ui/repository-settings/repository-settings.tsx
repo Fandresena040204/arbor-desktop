@@ -1,6 +1,5 @@
 import * as React from 'react'
 import { TabBar, TabBarType } from '../tab-bar'
-import { Remote } from './remote'
 import { GitIgnore } from './git-ignore'
 import { assertNever } from '../../lib/fatal-error'
 import { IRemote } from '../../models/remote'
@@ -12,7 +11,6 @@ import {
   isRepositoryWithForkedGitHubRepository,
 } from '../../models/repository'
 import { Dialog, DialogError, DialogFooter } from '../dialog'
-import { NoRemote } from './no-remote'
 import { readGitIgnoreAtRoot } from '../../lib/git'
 import { OkCancelButtonGroup } from '../dialog/ok-cancel-button-group'
 import { ForkSettings } from './fork-settings'
@@ -31,6 +29,8 @@ import {
 import { Account } from '../../models/account'
 import { Octicon } from '../octicons'
 import * as octicons from '../octicons/octicons.generated'
+// Arbor: multi-remote manager replaces the single-remote tab.
+import { ArborRemotesSettings } from '../arbor/remotes/remotes-settings'
 
 interface IRepositorySettingsProps {
   readonly initialSelectedTab?: RepositorySettingsTab
@@ -185,7 +185,7 @@ export class RepositorySettings extends React.Component<
           >
             <span>
               <Octicon className="icon" symbol={octicons.server} />
-              Remote
+              Remotes
             </span>
             <span>
               <Octicon className="icon" symbol={octicons.file} />
@@ -219,17 +219,14 @@ export class RepositorySettings extends React.Component<
     const tab = this.state.selectedTab
     switch (tab) {
       case RepositorySettingsTab.Remote: {
-        const remote = this.state.remote
-        if (remote) {
-          return (
-            <Remote
-              remote={remote}
-              onRemoteUrlChanged={this.onRemoteUrlChanged}
-            />
-          )
-        } else {
-          return <NoRemote onPublish={this.onPublish} />
-        }
+        // Arbor: use the full remote manager instead of the single-remote editor.
+        return (
+          <ArborRemotesSettings
+            repository={this.props.repository}
+            dispatcher={this.props.dispatcher}
+            onPublish={this.onPublish}
+          />
+        )
       }
       case RepositorySettingsTab.IgnoredFiles: {
         return (
@@ -386,17 +383,6 @@ export class RepositorySettings extends React.Component<
     } else {
       this.setState({ disabled: false, errors })
     }
-  }
-
-  private onRemoteUrlChanged = (url: string) => {
-    const remote = this.props.remote
-
-    if (!remote) {
-      return
-    }
-
-    const newRemote = { ...remote, url }
-    this.setState({ remote: newRemote })
   }
 
   private onIgnoreTextChanged = (text: string) => {
