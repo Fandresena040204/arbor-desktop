@@ -125,34 +125,19 @@
   }
 }
 
-// Arbor: keep the manager inside the settings dialog (no horizontal overflow).
-.arbor-remotes-settings {
+// Arbor: the tab column is a flex item, so without `min-width: 0` it grows to
+// fit its widest content and overflows the dialog.
+#repository-settings .tab-container .active-tab {
   min-width: 0;
-  max-width: 100%;
-  overflow-x: hidden;
+}
 
-  .arbor-remotes-toolbar,
-  .arbor-remote-row,
+.arbor-remotes-settings {
   .arbor-remote-actions {
-    display: flex;
     flex-wrap: wrap;
-    gap: var(--spacing-half);
-    align-items: center;
   }
 
-  .arbor-remote-info {
-    flex: 1 1 100%;
-    min-width: 0;
-  }
-
-  .arbor-remote-url {
-    overflow-wrap: anywhere;
-  }
-
-  .text-box-component,
-  input {
+  .text-box-component input {
     width: 100%;
-    max-width: 100%;
     box-sizing: border-box;
   }
 }

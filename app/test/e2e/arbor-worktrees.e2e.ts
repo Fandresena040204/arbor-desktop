@@ -144,15 +144,15 @@ test.describe('Arbor worktree context menu', () => {
     // Deleting the folder makes the worktree prunable.
     fs.rmSync(stalePath, { recursive: true, force: true })
 
-    // The app refreshes the repository (and its worktrees) on focus.
     const worktreeButton = page.locator('.worktree-button')
     await expect
       .poll(
         async () => {
           await app.evaluate(({ BrowserWindow }) => {
-            const w = BrowserWindow.getAllWindows()[0]
-            w.blur()
-            w.focus()
+            // Send the renderer the same IPC as a window focus, which
+            // refreshes the selected repository (including its worktrees).
+            // eslint-disable-next-line no-loosely-typed-webcontents-ipc
+            BrowserWindow.getAllWindows()[0].webContents.send('focus')
           })
           return worktreeButton.isVisible()
         },
