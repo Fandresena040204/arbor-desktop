@@ -9,6 +9,12 @@ import {
   getDotComAPIEndpoint,
   IAPICreatePushProtectionBypassResponse,
 } from '../../lib/api'
+// Arbor: Git operations for worktrees which upstream Desktop doesn't expose.
+import {
+  lockWorktree,
+  unlockWorktree,
+  pruneWorktrees,
+} from '../../lib/arbor/git/worktree'
 import { shell } from '../../lib/app-shell'
 import {
   CompareAction,
@@ -1076,6 +1082,47 @@ export class Dispatcher {
     checkout?: IDeferredCheckout
   ): void {
     this.appStore._requestDeleteWorktree(repository, worktreePath, checkout)
+  }
+
+  // Arbor: lock/unlock a worktree and prune stale worktree metadata.
+  /**
+   * Lock or unlock a worktree and keep the worktree list in sync.
+   *
+   * @param repository The repository the worktree belongs to.
+   * @param worktreePath The path of the worktree to lock or unlock.
+   * @param locked Whether the worktree should be locked.
+   */
+  public async arborSetWorktreeLocked(
+    repository: Repository,
+    worktreePath: string,
+    locked: boolean
+  ): Promise<void> {
+    try {
+      if (locked) {
+        await lockWorktree(repository.path, worktreePath)
+      } else {
+        await unlockWorktree(repository.path, worktreePath)
+      }
+
+      await this.appStore._arborRefreshWorktrees(repository)
+    } catch (e) {
+      this.postError(e)
+    }
+  }
+
+  /**
+   * Remove administrative data for worktrees whose directory no longer
+   * exists and keep the worktree list in sync.
+   *
+   * @param repository The repository to prune worktrees for.
+   */
+  public async arborPruneWorktrees(repository: Repository): Promise<void> {
+    try {
+      await pruneWorktrees(repository.path)
+      await this.appStore._arborRefreshWorktrees(repository)
+    } catch (e) {
+      this.postError(e)
+    }
   }
 
   /**

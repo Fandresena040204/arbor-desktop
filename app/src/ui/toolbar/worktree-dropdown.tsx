@@ -9,6 +9,12 @@ import { WorktreeEntry } from '../../models/worktree'
 import { WorktreeList } from '../worktrees/worktree-list'
 import { showContextualMenu, IMenuItem } from '../../lib/menu-item'
 import { generateWorktreeContextMenuItems } from '../worktrees/worktree-list-item-context-menu'
+// Arbor: Arbor-specific worktree context menu items.
+import {
+  generateArborWorktreeMenuItems,
+  generatePruneWorktreesMenuItem,
+} from '../arbor/worktrees/worktree-context-menu-items'
+import { showItemInFolder } from '../main-process-proxy'
 import { PopupType } from '../../models/popup'
 import { Resizable } from '../resizable'
 import { enableResizingToolbarButtons } from '../../lib/feature-flag'
@@ -51,6 +57,53 @@ export class WorktreeDropdown extends React.Component<
     await dispatcher.switchWorktree(repository, worktree)
   }
 
+  private onShowWorktreeInFileManager = (path: string) => {
+    // Arbor: keep the foldout closed while revealing the worktree folder.
+    this.props.dispatcher.closeFoldout(FoldoutType.Worktree)
+    showItemInFolder(path)
+  }
+
+  private onOpenWorktreeInShell = (path: string) => {
+    // Arbor: keep the foldout closed while opening the shell.
+    this.props.dispatcher.closeFoldout(FoldoutType.Worktree)
+    this.props.dispatcher.openShell(path)
+  }
+
+  private onOpenWorktreeInEditor = (path: string) => {
+    // Arbor: keep the foldout closed while opening the editor.
+    this.props.dispatcher.closeFoldout(FoldoutType.Worktree)
+    this.props.dispatcher.openInExternalEditor(path)
+  }
+
+  private onSetWorktreeLocked = (path: string, locked: boolean) => {
+    // Arbor: keep the foldout closed while toggling the lock.
+    this.props.dispatcher.closeFoldout(FoldoutType.Worktree)
+    this.props.dispatcher.arborSetWorktreeLocked(
+      this.props.repository,
+      path,
+      locked
+    )
+  }
+
+  private onPruneWorktrees = () => {
+    // Arbor: keep the foldout closed while pruning stale worktrees.
+    this.props.dispatcher.closeFoldout(FoldoutType.Worktree)
+    this.props.dispatcher.arborPruneWorktrees(this.props.repository)
+  }
+
+  // Arbor: generate the Arbor-specific menu items for a worktree.
+  private generateArborItems(
+    worktree: WorktreeEntry
+  ): ReadonlyArray<IMenuItem> {
+    return generateArborWorktreeMenuItems({
+      worktree,
+      onShowInFileManager: this.onShowWorktreeInFileManager,
+      onOpenInShell: this.onOpenWorktreeInShell,
+      onOpenInEditor: this.onOpenWorktreeInEditor,
+      onSetLocked: this.onSetWorktreeLocked,
+    })
+  }
+
   private onWorktreeContextMenu = (
     worktree: WorktreeEntry,
     event: React.MouseEvent<HTMLDivElement>
@@ -65,7 +118,8 @@ export class WorktreeDropdown extends React.Component<
       onRemoveWorktree: this.onRemoveWorktree,
     })
 
-    showContextualMenu(items)
+    // Arbor: append the Arbor-specific items to the upstream ones.
+    showContextualMenu([...items, ...this.generateArborItems(worktree)])
   }
 
   private onRenameWorktree = (path: string) => {
@@ -112,7 +166,22 @@ export class WorktreeDropdown extends React.Component<
       action: this.onCreateNewWorktree,
     }
 
-    showContextualMenu([newWorktreeItem, { type: 'separator' }, ...items])
+    // Arbor: append the Arbor-specific items for the current worktree,
+    // followed by a prune entry for stale worktrees of the repository.
+    const arborItems = this.generateArborItems(currentWorktree)
+    const pruneItem = generatePruneWorktreesMenuItem(
+      this.props.worktrees,
+      this.onPruneWorktrees
+    )
+
+    showContextualMenu([
+      newWorktreeItem,
+      { type: 'separator' },
+      ...items,
+      ...arborItems,
+      { type: 'separator' },
+      pruneItem,
+    ])
   }
 
   private onFilterTextChanged = (text: string) => {

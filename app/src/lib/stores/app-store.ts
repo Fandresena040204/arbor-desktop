@@ -4410,6 +4410,12 @@ export class AppStore extends TypedBaseStore<IAppState> {
     }
   }
 
+  // Arbor: expose the private worktree refresh so the dispatcher can keep the
+  // worktree list in sync after Arbor-only operations (lock, unlock, prune).
+  public async _arborRefreshWorktrees(repository: Repository): Promise<void> {
+    return this._refreshWorktrees(repository)
+  }
+
   public _updateCommitOptions(
     repository: Repository,
     commitOptions: Partial<CommitOptions>

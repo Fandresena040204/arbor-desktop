@@ -42,10 +42,11 @@ Not changed yet: the `x-github-client` and `x-github-desktop-auth` URL protocols
 ## Roadmap (from small to large)
 
 ### Small
-- [ ] Graphical cherry-pick: multi-commit selection, "Cherry-pick onto…" from
-  the context menu (drag and drop already exists upstream).
-- [ ] Worktrees: complete the UI (upstream already has `lib/git/worktree.ts` and
-  basic support).
+- [x] Graphical cherry-pick: multi-commit selection and drag and drop already
+  exist upstream. Cherry-picking from the graph will come with the interactive graph.
+- [x] Worktrees: lock/unlock, prune stale worktrees, and show in file manager /
+  open in shell / open in editor from the context menu (on top of upstream's
+  list/add/rename/delete).
 
 ### Medium
 - [ ] Multiple remotes: list/add/rename/remove remotes, fetch/push to a chosen remote.
