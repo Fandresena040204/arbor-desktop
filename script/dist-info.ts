@@ -95,7 +95,7 @@ export function getWindowsDeltaNugetPackagePath() {
 }
 
 export function getWindowsIdentifierName() {
-  return 'GitHubDesktop'
+  return 'ArborDesktop'
 }
 
 export function getBundleSizes() {
@@ -136,12 +136,9 @@ export function getDistArchitecture(): 'arm64' | 'x64' {
 }
 
 export function getUpdatesURL() {
-  // It is also possible to use a `x64/` path, but for now we'll leave the
-  // original URL without architecture in it (which will still work for
-  // compatibility reasons) in case anything goes wrong until we have everything
-  // sorted out.
-  const architecturePath = getDistArchitecture() === 'arm64' ? 'arm64/' : ''
-  return `https://central.github.com/api/deployments/desktop/desktop/${architecturePath}latest?version=${version}&env=${getChannel()}`
+  // Arbor does not use GitHub's update server (it would replace Arbor with the
+  // official GitHub Desktop). Auto-update is disabled unless a feed is provided.
+  return process.env.ARBOR_UPDATES_URL ?? ''
 }
 
 export function shouldMakeDelta() {

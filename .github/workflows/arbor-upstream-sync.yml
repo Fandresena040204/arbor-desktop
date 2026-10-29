@@ -1,0 +1,64 @@
+name: Arbor - sync upstream GitHub Desktop
+
+# Every Monday, merge desktop/desktop@development into a sync branch and open a
+# pull request so upstream updates can be reviewed before landing in Arbor.
+on:
+  schedule:
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: development
+          fetch-depth: 0
+
+      - name: Merge upstream into a sync branch
+        id: merge
+        run: |
+          git config user.name "arbor-sync[bot]"
+          git config user.email "arbor-sync@users.noreply.github.com"
+          git remote add upstream https://github.com/desktop/desktop.git
+          git fetch upstream development
+
+          if git merge-base --is-ancestor upstream/development HEAD; then
+            echo "Already up to date with upstream."
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          branch="sync/upstream-$(date +%Y-%m-%d)"
+          git checkout -b "$branch"
+          if git merge --no-edit upstream/development; then
+            echo "conflicts=false" >> "$GITHUB_OUTPUT"
+          else
+            # Commit the conflict markers so a human can resolve them in the PR.
+            git add -A
+            git commit --no-edit -m "Merge upstream/development (conflicts to resolve)"
+            echo "conflicts=true" >> "$GITHUB_OUTPUT"
+          fi
+          git push origin "$branch"
+          echo "branch=$branch" >> "$GITHUB_OUTPUT"
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+
+      - name: Open pull request
+        if: steps.merge.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          title="Sync upstream GitHub Desktop ($(date +%Y-%m-%d))"
+          body="Automated merge of desktop/desktop@development."
+          if [ "${{ steps.merge.outputs.conflicts }}" = "true" ]; then
+            body="$body
+
+          :warning: **Merge conflicts were committed with markers** - resolve them before merging."
+          fi
+          gh pr create --base development --head "${{ steps.merge.outputs.branch }}" \
+            --title "$title" --body "$body"

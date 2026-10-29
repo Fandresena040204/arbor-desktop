@@ -1,3 +1,16 @@
+# Arbor
+
+<img src="branding/arbor-logo-1024.png" width="96" alt="Arbor logo" />
+
+**Arbor** is a fork of GitHub Desktop focused on GitLab (including self-hosted)
+and advanced Git tooling: interactive graph, interactive rebase, graphical
+cherry-pick, branch comparison, multiple remotes, integrated terminal, conflict
+resolution and worktrees. See [docs/arbor](docs/arbor/README.md).
+
+---
+
+*Original GitHub Desktop README below.*
+
 # [GitHub Desktop](https://desktop.github.com)
 
 [GitHub Desktop](https://desktop.github.com/) is an open-source [Electron](https://www.electronjs.org/)-based

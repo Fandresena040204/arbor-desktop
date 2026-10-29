@@ -1,19 +1,18 @@
 {
   "name": "desktop",
-  "productName": "GitHub Desktop",
-  "bundleID": "com.github.GitHubClient",
-  "companyName": "GitHub, Inc.",
+  "productName": "Arbor",
+  "bundleID": "dev.arbor.desktop",
+  "companyName": "Arbor contributors",
   "version": "3.6.10",
   "main": "./main.js",
   "repository": {
     "type": "git",
-    "url": "https://github.com/desktop/desktop.git"
+    "url": "https://github.com/Fandresena040204/arbor-desktop.git"
   },
-  "description": "Simple collaboration from your desktop",
+  "description": "A Git client for GitHub and GitLab, forked from GitHub Desktop",
   "author": {
-    "name": "GitHub, Inc.",
-    "email": "opensource+desktop@github.com",
-    "url": "https://desktop.github.com/"
+    "name": "Arbor contributors",
+    "url": "https://github.com/Fandresena040204/arbor-desktop"
   },
   "license": "MIT",
   "dependencies": {
