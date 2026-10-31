@@ -1,1 +1,229 @@
-// Arbor: styles of the rebase UI.
+// Arbor: styles of the interactive rebase editor.
+
+#arbor-interactive-rebase {
+  width: 760px;
+  max-width: calc(100vw - 40px);
+  min-width: 0;
+
+  .dialog-content {
+    min-width: 0;
+    overflow-x: hidden;
+  }
+
+  .arbor-rebase-description {
+    margin-top: 0;
+    margin-bottom: var(--spacing);
+    color: var(--text-secondary-color);
+  }
+
+  .arbor-rebase-loading,
+  .arbor-rebase-empty {
+    padding: var(--spacing-double);
+    text-align: center;
+    color: var(--text-secondary-color);
+  }
+
+  .arbor-rebase-sha {
+    flex-shrink: 0;
+    font-family: var(--font-family-monospace);
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary-color);
+  }
+
+  .arbor-rebase-summary {
+    min-width: 0;
+    @include ellipsis;
+  }
+
+  // Step 1: pick the oldest commit to rewrite.
+  .arbor-rebase-start-list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    max-height: 360px;
+    overflow-x: hidden;
+    overflow-y: auto;
+    border: var(--base-border);
+    border-radius: var(--border-radius);
+  }
+
+  .arbor-rebase-start-entry {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: var(--spacing);
+    padding: var(--spacing-half) var(--spacing);
+    border-bottom: var(--base-border);
+    min-width: 0;
+    cursor: pointer;
+
+    &:last-child {
+      border-bottom: none;
+    }
+
+    &:hover {
+      background: var(--box-hover-background-color);
+    }
+
+    &:focus {
+      outline: 1px solid var(--focus-color);
+      outline-offset: -1px;
+    }
+
+    .arbor-rebase-summary {
+      flex: 1;
+    }
+  }
+
+  // Step 2: edit the plan.
+  .arbor-rebase-plan-toolbar {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing);
+    min-width: 0;
+    margin-bottom: var(--spacing);
+
+    .arbor-rebase-plan-subtitle {
+      margin: 0;
+      min-width: 0;
+      color: var(--text-secondary-color);
+      @include ellipsis;
+    }
+
+    .arbor-rebase-plan-actions {
+      display: flex;
+      flex-direction: row;
+      flex-shrink: 0;
+      gap: var(--spacing-half);
+    }
+  }
+
+  .arbor-rebase-plan {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    max-height: 380px;
+    overflow-x: hidden;
+    overflow-y: auto;
+    border: var(--base-border);
+    border-radius: var(--border-radius);
+  }
+
+  .arbor-rebase-entry {
+    padding: var(--spacing-half) var(--spacing);
+    border-bottom: var(--base-border);
+    min-width: 0;
+    background: var(--background-color);
+
+    &:last-child {
+      border-bottom: none;
+    }
+
+    &:focus {
+      outline: 1px solid var(--focus-color);
+      outline-offset: -1px;
+    }
+
+    // A squash or fixup is folded into the commit above it.
+    &.is-indented {
+      margin-left: var(--spacing-triple);
+      border-left: var(--base-border);
+    }
+
+    &.is-dropped {
+      opacity: 0.55;
+
+      .arbor-rebase-summary {
+        text-decoration: line-through;
+      }
+    }
+
+    &.is-dragging {
+      opacity: 0.4;
+    }
+
+    &.is-drop-target {
+      box-shadow: inset 0 2px 0 var(--focus-color);
+    }
+  }
+
+  .arbor-rebase-entry-row {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: var(--spacing-half);
+    min-width: 0;
+  }
+
+  .arbor-rebase-drag-handle {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    color: var(--text-secondary-color);
+    cursor: grab;
+  }
+
+  .arbor-rebase-action {
+    @include textboxish;
+
+    flex-shrink: 0;
+    width: 108px;
+    padding: 0 var(--spacing-half);
+  }
+
+  .arbor-rebase-entry-text {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .arbor-rebase-action-description {
+    min-width: 0;
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary-color);
+    @include ellipsis;
+  }
+
+  .arbor-rebase-entry-actions {
+    display: flex;
+    flex-direction: row;
+    flex-shrink: 0;
+    gap: var(--spacing-half);
+  }
+
+  .arbor-rebase-message {
+    display: block;
+    margin-top: var(--spacing-half);
+
+    textarea {
+      width: 100%;
+      min-width: 0;
+      font-family: var(--font-family-monospace);
+    }
+  }
+
+  .arbor-rebase-unchanged-hint {
+    margin-top: var(--spacing);
+    margin-bottom: 0;
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary-color);
+  }
+
+  // Step 3: the rebase is paused.
+  .arbor-rebase-paused {
+    .arbor-rebase-paused-message {
+      margin-top: 0;
+    }
+
+    .arbor-rebase-paused-actions {
+      display: flex;
+      flex-direction: row;
+      justify-content: flex-end;
+      gap: var(--spacing-half);
+      margin-top: var(--spacing);
+    }
+  }
+}
