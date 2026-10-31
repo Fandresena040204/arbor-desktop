@@ -60,6 +60,10 @@ Not changed yet: the `x-github-client` and `x-github-desktop-auth` URL protocols
 - [x] Interactive Git graph (GitKraken/GitLens style), merged into the Changes tab:
   WIP row, ref badges, avatars, branches panel, context menu actions.
 - [x] Built-in 3-way merge tool: Resolve in merge tool… from the conflicted file menu.
-- [ ] GitLab support (gitlab.com and self-hosted): PAT/OAuth login for any URL,
-  merge requests, CI pipeline status, issues. This requires a "hosting provider"
-  abstraction around `app/src/lib/api.ts`.
+- [x] GitLab support, part 1 (gitlab.com and self-hosted): Repository > GitLab…
+  (Ctrl+Alt+L) detects the GitLab remote (nested groups, instances under a
+  path), signs in with a personal access token kept in the OS credential
+  store, creates a merge request for the current branch, lists open merge
+  requests, shows the branch's latest pipeline and the issues.
+- [ ] GitLab support, next: OAuth sign-in, pipeline status in the toolbar and
+  graph, merge request reviews, using GitLab credentials for push/pull.

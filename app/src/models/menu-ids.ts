@@ -45,6 +45,7 @@ export type MenuIDs =
   | 'arbor-toggle-graph'
   | 'arbor-compare-branches'
   | 'arbor-interactive-rebase'
+  | 'arbor-gitlab'
   | 'preview-pull-request'
   | 'decrease-active-resizable-width'
   | 'increase-active-resizable-width'

@@ -515,6 +515,8 @@ export class App extends React.Component<IAppProps, IAppState> {
         return this.showArborDialog('compare-branches')
       case 'arbor-interactive-rebase':
         return this.showArborDialog('interactive-rebase')
+      case 'arbor-gitlab':
+        return this.showArborDialog('gitlab')
       case 'remove-repository':
         return this.removeRepository(this.getRepository())
       case 'create-repository':
@@ -3994,7 +3996,9 @@ export class App extends React.Component<IAppProps, IAppState> {
   }
 
   /** Arbor: open a repository-scoped Arbor dialog for the selected repository. */
-  private showArborDialog(kind: 'compare-branches' | 'interactive-rebase') {
+  private showArborDialog(
+    kind: 'compare-branches' | 'interactive-rebase' | 'gitlab'
+  ) {
     const repository = this.getRepository()
     if (!(repository instanceof Repository)) {
       return

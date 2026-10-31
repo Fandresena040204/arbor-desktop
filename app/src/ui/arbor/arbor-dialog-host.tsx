@@ -5,6 +5,7 @@ import { Dispatcher } from '../dispatcher'
 import { CompareBranchesDialog } from './compare/compare-branches-dialog'
 import { InteractiveRebaseDialog } from './rebase/interactive-rebase-dialog'
 import { MergeToolDialog } from './conflicts/merge-tool-dialog'
+import { GitLabDialog } from './gitlab/gitlab-dialog'
 
 interface IArborDialogHostProps {
   readonly dialog: ArborDialog
@@ -41,6 +42,14 @@ export function ArborDialogHost(props: IArborDialogHostProps) {
           repository={dialog.repository}
           dispatcher={dispatcher}
           path={dialog.path}
+          onDismissed={onDismissed}
+        />
+      )
+    case 'gitlab':
+      return (
+        <GitLabDialog
+          repository={dialog.repository}
+          dispatcher={dispatcher}
           onDismissed={onDismissed}
         />
       )

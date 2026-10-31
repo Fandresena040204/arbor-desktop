@@ -23,6 +23,10 @@ export type ArborDialog =
       readonly fromCommitSha?: string
     }
   | {
+      readonly kind: 'gitlab'
+      readonly repository: Repository
+    }
+  | {
       readonly kind: 'merge-tool'
       readonly repository: Repository
       /** Repository-relative path of the conflicted file. */

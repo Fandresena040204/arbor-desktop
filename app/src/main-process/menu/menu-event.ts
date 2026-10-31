@@ -54,6 +54,7 @@ export type MenuEvent =
   | 'arbor-toggle-graph'
   | 'arbor-compare-branches'
   | 'arbor-interactive-rebase'
+  | 'arbor-gitlab'
   | TestMenuEvent
 
 /**

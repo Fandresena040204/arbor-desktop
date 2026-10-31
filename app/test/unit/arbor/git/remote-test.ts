@@ -48,10 +48,7 @@ describe('arbor/git/remote', () => {
         remotes.map(r => r.name),
         ['origin', 'upstream']
       )
-      assert.strictEqual(
-        remotes.find(r => r.name === 'origin')?.url,
-        '/origin'
-      )
+      assert.strictEqual(remotes.find(r => r.name === 'origin')?.url, '/origin')
     })
 
     it('fails when the remote to rename does not exist', async t => {

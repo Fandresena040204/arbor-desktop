@@ -215,13 +215,13 @@ export function buildDefaultMenuTemplate({
       },
       // Arbor: menu item to toggle the integrated terminal panel.
       {
-        label: __DARWIN__ ? 'Toggle Terminal' : 'Toggle &terminal',
+        label: __DARWIN__ ? 'Toggle Terminal' : 'Toggle ter&minal',
         id: 'arbor-toggle-terminal',
         accelerator: 'CmdOrCtrl+`',
         click: emit('arbor-toggle-terminal'),
       },
       {
-        label: __DARWIN__ ? 'Toggle Graph' : 'Toggle &graph',
+        label: __DARWIN__ ? 'Toggle Graph' : 'Toggle gr&aph',
         id: 'arbor-toggle-graph',
         accelerator: 'CmdOrCtrl+Alt+G',
         click: emit('arbor-toggle-graph'),
@@ -414,6 +414,13 @@ export function buildDefaultMenuTemplate({
           : 'Create &issue on GitHub',
         accelerator: 'CmdOrCtrl+I',
         click: emit('create-issue-in-repository-on-github'),
+      },
+      // Arbor: GitLab merge requests, pipelines and issues.
+      {
+        id: 'arbor-gitlab',
+        label: 'GitLab…',
+        accelerator: 'CmdOrCtrl+Alt+L',
+        click: emit('arbor-gitlab'),
       },
       separator,
       {

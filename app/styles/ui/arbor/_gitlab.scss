@@ -1,0 +1,310 @@
+// Arbor: styles of the GitLab dialog.
+
+dialog#arbor-gitlab {
+  width: 720px;
+  max-width: calc(100vw - 40px);
+
+  .dialog-content {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing);
+    min-width: 0;
+  }
+
+  .arbor-gitlab-explanation {
+    color: var(--text-secondary-color);
+    margin-top: 0;
+  }
+
+  .arbor-gitlab-help {
+    color: var(--text-secondary-color);
+    font-size: var(--font-size-sm);
+    margin: 0;
+  }
+
+  .arbor-gitlab-row {
+    display: flex;
+    align-items: flex-end;
+    gap: var(--spacing);
+    min-width: 0;
+
+    .arbor-gitlab-instance {
+      flex: 1;
+      min-width: 0;
+    }
+
+    flex-wrap: wrap;
+
+    > .arbor-gitlab-use-instance,
+    > .arbor-gitlab-sign-in-button {
+      flex-shrink: 0;
+    }
+  }
+
+  .arbor-gitlab-pane {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing);
+    min-width: 0;
+  }
+
+  .arbor-gitlab-header {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing);
+    min-width: 0;
+
+    .arbor-gitlab-identity {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 0;
+      flex: 1;
+
+      .arbor-gitlab-project-pending,
+      .arbor-gitlab-project-link {
+        font-weight: var(--font-weight-semibold);
+        min-width: 0;
+        @include ellipsis;
+      }
+
+      .arbor-gitlab-user {
+        color: var(--text-secondary-color);
+        font-size: var(--font-size-sm);
+      }
+    }
+
+    .arbor-gitlab-sign-out {
+      flex-shrink: 0;
+    }
+  }
+
+  .arbor-gitlab-tabs {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+  }
+
+  .arbor-gitlab-tab-body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing);
+    padding: var(--spacing);
+    max-height: 50vh;
+    overflow: auto;
+    min-width: 0;
+  }
+
+  .arbor-gitlab-section-title {
+    font-size: var(--font-size);
+    margin: var(--spacing-half) 0;
+  }
+
+  .arbor-gitlab-status,
+  .arbor-gitlab-error {
+    color: var(--text-secondary-color);
+    padding: var(--spacing-half) 0;
+    min-width: 0;
+  }
+
+  .arbor-gitlab-error {
+    color: var(--color-deleted);
+  }
+
+  .arbor-gitlab-draft {
+    @include ellipsis;
+
+    flex-shrink: 0;
+    padding: 1px var(--spacing-half);
+    border: var(--base-border);
+    border-radius: var(--border-radius);
+    color: var(--text-secondary-color);
+    font-size: var(--font-size-sm);
+  }
+
+  // Current merge request and merge request creation.
+
+  .arbor-gitlab-create-mr {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing);
+    min-width: 0;
+  }
+
+  .arbor-gitlab-mr-source,
+  .arbor-gitlab-mr-target {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .arbor-gitlab-mr-title input,
+  .arbor-gitlab-mr-target input {
+    min-width: 0;
+  }
+
+  .arbor-gitlab-mr-options {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-half);
+  }
+
+  .arbor-gitlab-mr-summary {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-half);
+    padding: var(--spacing-half) var(--spacing);
+    border: var(--base-border);
+    border-radius: var(--border-radius);
+    min-width: 0;
+  }
+
+  .arbor-gitlab-mr-heading {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-half);
+    min-width: 0;
+
+    .arbor-gitlab-mr-title,
+    .arbor-gitlab-mr-link {
+      min-width: 0;
+      @include ellipsis;
+    }
+  }
+
+  .arbor-gitlab-mr-meta {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing);
+    min-width: 0;
+    color: var(--text-secondary-color);
+    font-size: var(--font-size-sm);
+
+    .arbor-gitlab-mr-iid {
+      flex-shrink: 0;
+      font-family: var(--font-family-monospace);
+    }
+
+    .arbor-gitlab-mr-branches,
+    .arbor-gitlab-mr-author {
+      min-width: 0;
+      @include ellipsis;
+    }
+  }
+
+  // Merge request list.
+
+  .arbor-gitlab-mr-list,
+  .arbor-gitlab-issue-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .arbor-gitlab-mr-list button,
+  .arbor-gitlab-issue-list button {
+    display: flex;
+    gap: var(--spacing);
+    align-items: center;
+    width: 100%;
+    padding: var(--spacing-half) var(--spacing);
+    border: none;
+    border-bottom: var(--base-border);
+    background: none;
+    color: var(--text-color);
+    text-align: left;
+    cursor: pointer;
+    min-width: 0;
+
+    &:hover,
+    &:focus {
+      background: var(--box-selected-background-color);
+    }
+
+    &:last-child {
+      border-bottom: none;
+    }
+  }
+
+  .arbor-gitlab-mr-list button {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  // Pipeline tab.
+
+  .arbor-gitlab-pipeline {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing);
+    min-width: 0;
+  }
+
+  .arbor-gitlab-pipeline-summary {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing);
+    min-width: 0;
+
+    .arbor-gitlab-pipeline-status {
+      font-weight: var(--font-weight-semibold);
+    }
+
+    .arbor-gitlab-pipeline-sha {
+      font-family: var(--font-family-monospace);
+      color: var(--text-secondary-color);
+      min-width: 0;
+      @include ellipsis;
+    }
+  }
+
+  .arbor-gitlab-pipeline-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+
+    &.success {
+      background: var(--color-new);
+    }
+
+    &.failed {
+      background: var(--color-deleted);
+    }
+
+    &.running {
+      background: var(--color-renamed);
+    }
+
+    &.pending {
+      background: var(--color-conflicted);
+    }
+
+    &.idle {
+      background: var(--text-secondary-color);
+    }
+  }
+
+  .arbor-gitlab-pipeline .arbor-gitlab-pipeline-refresh {
+    align-self: flex-start;
+  }
+
+  // Issues tab.
+
+  .arbor-gitlab-issue-search {
+    min-width: 0;
+  }
+
+  .arbor-gitlab-issue {
+    .arbor-gitlab-issue-iid {
+      flex-shrink: 0;
+      font-family: var(--font-family-monospace);
+      color: var(--text-secondary-color);
+    }
+
+    .arbor-gitlab-issue-title {
+      min-width: 0;
+      @include ellipsis;
+    }
+  }
+}

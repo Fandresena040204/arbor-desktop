@@ -149,6 +149,7 @@ const allMenuIds: ReadonlyArray<MenuIDs> = [
   'arbor-toggle-graph',
   'arbor-compare-branches',
   'arbor-interactive-rebase',
+  'arbor-gitlab',
 ]
 
 function getAllMenusDisabledBuilder(): MenuStateBuilder {
@@ -259,6 +260,7 @@ function getRepositoryMenuBuilder(state: IAppState): MenuStateBuilder {
     'arbor-toggle-graph',
     'arbor-compare-branches',
     'arbor-interactive-rebase',
+    'arbor-gitlab',
     'open-external-editor',
     ...(enableCopilotAppHandoff() ? (['open-in-copilot-app'] as const) : []),
     'open-with-external-editor',
