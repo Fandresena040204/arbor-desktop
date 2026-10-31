@@ -13,21 +13,22 @@ import * as fs from 'fs'
 import * as os from 'os'
 import * as path from 'path'
 import { execFileSync } from 'child_process'
-import type { ElectronApplication, Page } from '@playwright/test'
+import type { Page } from '@playwright/test'
 import { test, expect } from './e2e-fixtures'
 import { smokeRepoPath } from './test-helpers'
-import { openSmokeRepository } from './arbor-helpers'
+import {
+  clearCapturedMenu,
+  clickCapturedMenuItem,
+  getCapturedMenu,
+  ICapturedMenuItem,
+  installMenuCapture,
+  openSmokeRepository,
+} from './arbor-helpers'
 
 test.describe.configure({ mode: 'serial' })
 
 const linkedPath = path.join(os.tmpdir(), 'arbor-e2e-worktree-linked')
 const stalePath = path.join(os.tmpdir(), 'arbor-e2e-worktree-stale')
-
-interface ICapturedMenuItem {
-  readonly label: string
-  readonly enabled: boolean
-  readonly type: string
-}
 
 function git(args: ReadonlyArray<string>) {
   return execFileSync('git', [...args], {
@@ -52,53 +53,6 @@ function findWorktree(worktreePath: string) {
   return getWorktreeEntries().find(
     e => e.path.toLowerCase() === expected.toLowerCase()
   )
-}
-
-async function installMenuCapture(app: ElectronApplication) {
-  await app.evaluate(({ Menu }) => {
-    const g = globalThis as any
-    Menu.prototype.popup = function (options?: { callback?: () => void }) {
-      g.__arborMenu = { menu: this, callback: options?.callback }
-    }
-  })
-}
-
-async function clearCapturedMenu(app: ElectronApplication) {
-  await app.evaluate(() => {
-    const g = globalThis as any
-    g.__arborMenu?.callback?.()
-    g.__arborMenu = undefined
-  })
-}
-
-async function getCapturedMenu(
-  app: ElectronApplication
-): Promise<ReadonlyArray<ICapturedMenuItem>> {
-  await expect
-    .poll(() =>
-      app.evaluate(() => (globalThis as any).__arborMenu !== undefined)
-    )
-    .toBe(true)
-
-  return app.evaluate(() =>
-    (globalThis as any).__arborMenu.menu.items.map((i: any) => ({
-      label: i.label,
-      enabled: i.enabled,
-      type: i.type,
-    }))
-  )
-}
-
-async function clickCapturedMenuItem(app: ElectronApplication, label: string) {
-  await app.evaluate((_, l) => {
-    const g = globalThis as any
-    const item = g.__arborMenu.menu.items.find((i: any) => i.label === l)
-    if (item === undefined) {
-      throw new Error(`Menu item not found: ${l}`)
-    }
-    g.__arborMenu = undefined
-    item.click()
-  }, label)
 }
 
 function getItem(items: ReadonlyArray<ICapturedMenuItem>, label: string) {

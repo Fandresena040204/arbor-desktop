@@ -3,7 +3,7 @@
  */
 
 import type { ElectronApplication, Page } from '@playwright/test'
-import { dismissMoveToApplicationsDialog } from './e2e-fixtures'
+import { dismissMoveToApplicationsDialog, expect } from './e2e-fixtures'
 import { smokeRepoFileName, smokeRepoPath } from './test-helpers'
 
 /** Complete the welcome flow and open the smoke repository. */
@@ -93,4 +93,66 @@ export async function clickAppMenuItem(app: ElectronApplication, id: string) {
     }
     item.click()
   }, id)
+}
+
+/*
+ * Context menus are native Electron menus: these helpers replace
+ * `Menu.prototype.popup` in the main process to capture the menu and trigger
+ * its items instead of clicking on screen.
+ */
+
+export interface ICapturedMenuItem {
+  readonly label: string
+  readonly enabled: boolean
+  readonly type: string
+}
+
+export async function installMenuCapture(app: ElectronApplication) {
+  await app.evaluate(({ Menu }) => {
+    const g = globalThis as any
+    Menu.prototype.popup = function (options?: { callback?: () => void }) {
+      g.__arborMenu = { menu: this, callback: options?.callback }
+    }
+  })
+}
+
+export async function clearCapturedMenu(app: ElectronApplication) {
+  await app.evaluate(() => {
+    const g = globalThis as any
+    g.__arborMenu?.callback?.()
+    g.__arborMenu = undefined
+  })
+}
+
+export async function getCapturedMenu(
+  app: ElectronApplication
+): Promise<ReadonlyArray<ICapturedMenuItem>> {
+  await expect
+    .poll(() =>
+      app.evaluate(() => (globalThis as any).__arborMenu !== undefined)
+    )
+    .toBe(true)
+
+  return app.evaluate(() =>
+    (globalThis as any).__arborMenu.menu.items.map((i: any) => ({
+      label: i.label,
+      enabled: i.enabled,
+      type: i.type,
+    }))
+  )
+}
+
+export async function clickCapturedMenuItem(
+  app: ElectronApplication,
+  label: string
+) {
+  await app.evaluate((_, l) => {
+    const g = globalThis as any
+    const item = g.__arborMenu.menu.items.find((i: any) => i.label === l)
+    if (item === undefined) {
+      throw new Error(`Menu item not found: ${l}`)
+    }
+    g.__arborMenu = undefined
+    item.click()
+  }, label)
 }
