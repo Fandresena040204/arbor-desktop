@@ -52,7 +52,6 @@ import { CloningRepositoryView } from './cloning-repository'
 import { ArborTerminalPanel } from './arbor/terminal/terminal-panel'
 // Arbor: feature dialogs and the commit graph view.
 import { ArborDialogHost } from './arbor/arbor-dialog-host'
-import { ArborGraphView } from './arbor/graph/graph-view'
 import {
   Toolbar,
   ToolbarDropdown,
@@ -290,8 +289,11 @@ export class App extends React.Component<IAppProps, IAppState> {
    */
   private arborTerminalOpen = false
 
-  /** Arbor: whether the commit graph replaces the repository view. */
-  private arborGraphOpen = false
+  /**
+   * Arbor: whether the Changes tab shows the commit graph (the default, like
+   * GitKraken) rather than the diff of the selected file.
+   */
+  private arborGraphOpen = true
 
   private updateIntervalHandle?: number
 
@@ -504,6 +506,9 @@ export class App extends React.Component<IAppProps, IAppState> {
       // Arbor: commit graph, branch comparison and interactive rebase.
       case 'arbor-toggle-graph':
         this.arborGraphOpen = !this.arborGraphOpen
+        if (this.arborGraphOpen) {
+          return this.showChanges(false)
+        }
         this.forceUpdate()
         return undefined
       case 'arbor-compare-branches':
@@ -4001,9 +4006,9 @@ export class App extends React.Component<IAppProps, IAppState> {
     })
   }
 
-  /** Arbor: the function to call when the user closes the commit graph. */
-  private onArborGraphClose = () => {
-    this.arborGraphOpen = false
+  /** Arbor: show the graph or the diff in the Changes tab. */
+  private onArborGraphSelected = (selected: boolean) => {
+    this.arborGraphOpen = selected
     this.forceUpdate()
   }
 
@@ -4045,6 +4050,9 @@ export class App extends React.Component<IAppProps, IAppState> {
       const repositoryView = (
         <RepositoryView
           ref={this.repositoryViewRef}
+          // Arbor: the Graph tab.
+          arborGraphSelected={this.arborGraphOpen}
+          onArborGraphSelected={this.onArborGraphSelected}
           // When switching repositories we want to remount the RepositoryView
           // component to reset the scroll positions.
           key={selectedState.repository.hash}
@@ -4107,16 +4115,7 @@ export class App extends React.Component<IAppProps, IAppState> {
 
       return (
         <div className="arbor-repository-with-terminal">
-          {this.arborGraphOpen ? (
-            <ArborGraphView
-              key={selectedState.repository.hash}
-              repository={selectedState.repository}
-              dispatcher={this.props.dispatcher}
-              onClose={this.onArborGraphClose}
-            />
-          ) : (
-            repositoryView
-          )}
+          {repositoryView}
           {this.arborTerminalOpen && (
             <ArborTerminalPanel
               repositoryPath={selectedState.repository.path}

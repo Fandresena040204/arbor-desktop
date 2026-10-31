@@ -141,7 +141,18 @@ test.describe('Arbor worktree context menu', () => {
     await clickCapturedMenuItem(app, 'Lock worktree')
     await expect.poll(() => findWorktree(linkedPath)?.locked).toBe(true)
 
-    await rightClickWorktree(page, path.basename(linkedPath))
+    // The worktree list refreshes asynchronously after the lock.
+    await expect
+      .poll(async () => {
+        await rightClickWorktree(page, path.basename(linkedPath))
+        const labels = (await getCapturedMenu(app)).map(i => i.label)
+        if (!labels.includes('Unlock worktree')) {
+          await clearCapturedMenu(app)
+          return false
+        }
+        return true
+      })
+      .toBe(true)
     const items = await getCapturedMenu(app)
     expect(getItem(items, 'Unlock worktree').enabled).toBe(true)
 

@@ -179,6 +179,8 @@ test.describe('GitHub Desktop - App Launch', () => {
     await repoFile.click()
 
     // ── Diff ────────────────────────────────────────────────────────
+    // Arbor: the Changes tab shows the commit graph by default; show the diff.
+    await page.getByRole('button', { name: 'Diff', exact: true }).click()
     const diffContainer = page.locator('.diff-container')
     await diffContainer.waitFor({ state: 'visible', timeout: 15000 })
     await expect(diffContainer).toContainText(smokeRepoFileContents, {

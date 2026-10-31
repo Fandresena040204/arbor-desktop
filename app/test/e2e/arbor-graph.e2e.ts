@@ -78,15 +78,15 @@ test.describe('Arbor commit graph', () => {
     })
   })
 
-  test('opens from the View menu and draws the refs', async ({
-    app,
+  test('is the main view of the Changes tab and draws the refs', async ({
     mainWindow: page,
   }) => {
-    await clickAppMenuItem(app, 'arbor-toggle-graph')
+    // Like GitKraken, the graph is shown in the Changes tab by default.
+    await page.getByRole('button', { name: 'Graph', exact: true }).click()
     await graph(page).waitFor({ state: 'visible', timeout: 15000 })
 
     await expect(
-      graph(page).locator('.arbor-graph-ref.branch.current')
+      graph(page).locator('.arbor-graph-row .arbor-graph-ref.branch.current')
     ).toHaveText(current, { timeout: 15000 })
     await expect(rowWithRef(page, 'v-arbor-graph')).toHaveCount(1)
     // The local branch and origin's copy share one badge, with a remote icon.
@@ -151,10 +151,15 @@ test.describe('Arbor commit graph', () => {
   })
 
   test('shows uncommitted changes as a WIP row', async ({
+    app,
     mainWindow: page,
   }) => {
     fs.writeFileSync(path.join(smokeRepoPath, 'graph-wip.txt'), 'wip\n')
-    await graph(page).getByRole('button', { name: 'Refresh graph' }).click()
+    // Desktop notices the change, which updates the graph's WIP row.
+    await app.evaluate(({ BrowserWindow }) => {
+      // eslint-disable-next-line no-loosely-typed-webcontents-ipc
+      BrowserWindow.getAllWindows()[0].webContents.send('focus')
+    })
 
     const wip = graph(page).locator('.arbor-graph-row.wip')
     await expect(wip).toContainText('// WIP: 1 changed file', {
@@ -164,12 +169,57 @@ test.describe('Arbor commit graph', () => {
     await graph(page).screenshot({
       path: test.info().outputPath('arbor-graph-wip.png'),
     })
+  })
+
+  test('switches to the diff from a changed file', async ({
+    mainWindow: page,
+  }) => {
+    await page
+      .locator('#changes-list .list-item', { hasText: 'graph-wip.txt' })
+      .click()
+    await expect(graph(page)).toHaveCount(0)
+    await expect(page.locator('.diff-container')).toContainText('wip', {
+      timeout: 15000,
+    })
+
+    await page.getByRole('button', { name: 'Graph', exact: true }).click()
+    await graph(page).waitFor({ state: 'visible', timeout: 15000 })
+    await graph(page)
+      .locator('.arbor-graph-row')
+      .first()
+      .waitFor({ state: 'visible', timeout: 15000 })
+    await page.screenshot({
+      path: test.info().outputPath('arbor-changes-graph.png'),
+    })
     fs.rmSync(path.join(smokeRepoPath, 'graph-wip.txt'))
   })
 
-  test('closes back to the repository view', async ({ mainWindow: page }) => {
+  test('selects a ref from the branches panel', async ({
+    mainWindow: page,
+  }) => {
+    // The panel is closed by default in the test window, which is narrow.
+    if ((await graph(page).locator('.arbor-graph-sidebar').count()) === 0) {
+      await graph(page)
+        .getByRole('button', { name: 'Toggle branches panel' })
+        .click()
+    }
+    await graph(page)
+      .locator('.arbor-graph-sidebar-ref', { hasText: 'v-arbor-graph' })
+      .click()
+    const sha = git(['rev-parse', 'v-arbor-graph^{commit}'])
+    await expect(graph(page).locator('.arbor-graph-details')).toContainText(sha)
+  })
+
+  test('toggles from the View menu', async ({ app, mainWindow: page }) => {
+    await clickAppMenuItem(app, 'arbor-toggle-graph')
+    await expect(graph(page)).toHaveCount(0)
+    await clickAppMenuItem(app, 'arbor-toggle-graph')
+    await graph(page).waitFor({ state: 'visible', timeout: 15000 })
+  })
+
+  test('shows the diff view again', async ({ mainWindow: page }) => {
     // The cherry-pick may show Desktop's success banner; the graph stays.
-    await graph(page).getByRole('button', { name: 'Close graph' }).click()
+    await page.getByRole('button', { name: 'Diff', exact: true }).click()
     await expect(graph(page)).toHaveCount(0)
     await expect(page.locator('#repository')).toBeVisible()
   })

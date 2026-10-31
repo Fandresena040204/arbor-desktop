@@ -1,4 +1,6 @@
 import * as React from 'react'
+// Arbor: the commit graph, merged into the Changes tab.
+import { ArborGraphView } from './arbor/graph/graph-view'
 import { Repository } from '../models/repository'
 import { Commit, CommitOneLine } from '../models/commit'
 import { TipState } from '../models/tip'
@@ -39,6 +41,10 @@ import { PopupType } from '../models/popup'
 
 interface IRepositoryViewProps {
   readonly repository: Repository
+  // Arbor: whether the Changes tab shows the commit graph (rather than the
+  // diff of the selected file), and how to change it.
+  readonly arborGraphSelected?: boolean
+  readonly onArborGraphSelected?: (selected: boolean) => void
   readonly state: IRepositoryState
   readonly dispatcher: Dispatcher
   readonly emoji: Map<string, Emoji>
@@ -388,7 +394,16 @@ export class RepositoryView extends React.Component<
     const selectedSection = this.props.state.selectedSection
 
     if (selectedSection === RepositorySectionTab.Changes) {
-      return this.renderChangesSidebar()
+      // Arbor: clicking a file of the changes list shows its diff instead of
+      // the graph.
+      return (
+        <div
+          className="arbor-changes-sidebar"
+          onClickCapture={this.onArborChangesSidebarClick}
+        >
+          {this.renderChangesSidebar()}
+        </div>
+      )
     } else if (selectedSection === RepositorySectionTab.History) {
       return this.renderCompareSidebar()
     } else {
@@ -631,10 +646,69 @@ export class RepositoryView extends React.Component<
     this.props.dispatcher.changeImageDiffType(imageDiffType)
   }
 
+  /** Arbor: show the diff when a file of the changes list is clicked. */
+  private onArborChangesSidebarClick = (event: React.MouseEvent) => {
+    const target = event.target
+    if (
+      target instanceof Element &&
+      target.closest('#changes-list .list-item') !== null &&
+      target.closest('input[type="checkbox"]') === null
+    ) {
+      this.props.onArborGraphSelected?.(false)
+    }
+  }
+
+  private onArborShowGraph = () => this.props.onArborGraphSelected?.(true)
+  private onArborShowDiff = () => this.props.onArborGraphSelected?.(false)
+
+  /** Arbor: the Graph | Diff switch above the main area of the Changes tab. */
+  private renderArborChangesSwitch() {
+    const graph = this.props.arborGraphSelected === true
+    return (
+      <div className="arbor-changes-switch" role="group" aria-label="Main view">
+        <button
+          type="button"
+          className={`arbor-changes-switch-button${graph ? ' selected' : ''}`}
+          aria-pressed={graph}
+          onClick={this.onArborShowGraph}
+        >
+          Graph
+        </button>
+        <button
+          type="button"
+          className={`arbor-changes-switch-button${graph ? '' : ' selected'}`}
+          aria-pressed={!graph}
+          onClick={this.onArborShowDiff}
+        >
+          Diff
+        </button>
+      </div>
+    )
+  }
+
   private renderContent(): JSX.Element | null {
     const selectedSection = this.props.state.selectedSection
+
     if (selectedSection === RepositorySectionTab.Changes) {
-      return this.renderContentForChanges()
+      // Arbor: like GitKraken, the Changes tab shows the commit graph (its
+      // WIP row being the working directory) or the diff of a file.
+      return (
+        <div className="arbor-changes-main">
+          {this.renderArborChangesSwitch()}
+          {this.props.arborGraphSelected ? (
+            <ArborGraphView
+              repository={this.props.repository}
+              dispatcher={this.props.dispatcher}
+              onShowChanges={this.onArborShowDiff}
+              changedFiles={
+                this.props.state.changesState.workingDirectory.files.length
+              }
+            />
+          ) : (
+            this.renderContentForChanges()
+          )}
+        </div>
+      )
     } else if (selectedSection === RepositorySectionTab.History) {
       return this.renderContentForHistory()
     } else {

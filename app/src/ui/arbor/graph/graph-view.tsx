@@ -26,6 +26,7 @@ import { Octicon } from '../../octicons'
 import * as octicons from '../../octicons/octicons.generated'
 import { writeClipboardText } from '../../main-process-proxy'
 import { doesCommitMatchFilter } from './graph-filter'
+import { ArborGraphSidebar } from './graph-sidebar'
 import {
   GraphRowHeight,
   graphRowNode,
@@ -38,8 +39,10 @@ import { getInitials, groupRefs, IGraphRefBadge } from './graph-refs'
 export interface IArborGraphViewProps {
   readonly repository: Repository
   readonly dispatcher: Dispatcher
-  /** Close the graph and go back to the repository view. */
-  readonly onClose: () => void
+  /** Number of files with uncommitted changes, shown as the WIP row. */
+  readonly changedFiles: number
+  /** Show the diff of the uncommitted changes instead of the graph. */
+  readonly onShowChanges: () => void
 }
 
 /** Commits loaded per page. */
@@ -67,8 +70,10 @@ interface IArborGraphViewState {
   readonly currentBranch: string | null
   /** Full message of the selected commit, once loaded. */
   readonly message: string | null
-  /** Number of files with uncommitted changes (the WIP row). */
-  readonly changedFiles: number
+  /** Whether the branches, remotes and tags panel is shown. */
+  readonly showRefsPanel: boolean
+  /** Row to scroll to, e.g. after picking a ref in the panel. */
+  readonly scrollToRow?: number
 }
 
 const BadgeIcons: Record<IGraphRefBadge['kind'], typeof octicons.tag> = {
@@ -104,7 +109,8 @@ export class ArborGraphView extends React.Component<
       filter: '',
       currentBranch: null,
       message: null,
-      changedFiles: 0,
+      // Like GitKraken's left panel, but only open by default on wide windows.
+      showRefsPanel: window.innerWidth >= 1400,
     }
   }
 
@@ -115,6 +121,13 @@ export class ArborGraphView extends React.Component<
 
   public componentWillUnmount() {
     this.isMounted = false
+  }
+
+  public componentDidUpdate(prevProps: IArborGraphViewProps) {
+    // A commit, checkout or new change in the Changes tab updates the graph.
+    if (prevProps.changedFiles !== this.props.changedFiles) {
+      this.reload()
+    }
   }
 
   private async reload() {
@@ -131,18 +144,13 @@ export class ArborGraphView extends React.Component<
     })
 
     const { repository } = this.props
-    const [headRef, status] = await Promise.all([
-      getSymbolicRef(repository, 'HEAD'),
-      git(['status', '--porcelain'], repository.path, 'arborGraphStatus'),
-    ])
+    const headRef = await getSymbolicRef(repository, 'HEAD')
     if (this.isMounted && generation === this.loadGeneration) {
       this.setState({
         currentBranch:
           headRef !== null && headRef.startsWith('refs/heads/')
             ? headRef.substring('refs/heads/'.length)
             : null,
-        changedFiles: status.stdout.split('\n').filter(l => l.length > 0)
-          .length,
       })
       await this.loadMore(generation)
     }
@@ -200,7 +208,7 @@ export class ArborGraphView extends React.Component<
     page: ReadonlyArray<IGraphCommit>
   ): ReadonlyArray<IGraphCommit> {
     const head = page.find(c => c.isHead)
-    const { changedFiles } = this.state
+    const { changedFiles } = this.props
     if (head === undefined || changedFiles === 0) {
       return page
     }
@@ -264,6 +272,24 @@ export class ArborGraphView extends React.Component<
   }
 
   private onFilterChanged = (filter: string) => this.setState({ filter })
+
+  private onToggleRefsPanel = () =>
+    this.setState(state => ({ showRefsPanel: !state.showRefsPanel }))
+
+  /** Select and scroll to the commit a ref (branch, remote, tag) points at. */
+  private onSelectRef = async (name: string) => {
+    const isRef = (c: IGraphCommit) => c.refs.some(r => r.name === name)
+    let index = this.state.commits.findIndex(isRef)
+    // Load further pages, within reason, if the ref is older than them.
+    for (let i = 0; index === -1 && this.state.hasMore && i < 10; i++) {
+      await this.loadMore()
+      index = this.state.commits.findIndex(isRef)
+    }
+    if (index !== -1) {
+      this.select(index)
+      this.setState({ scrollToRow: index })
+    }
+  }
   private onRefresh = () => this.reload()
 
   private onParentClick = (event: React.MouseEvent<HTMLButtonElement>) => {
@@ -563,8 +589,11 @@ export class ArborGraphView extends React.Component<
         <aside className="arbor-graph-details" aria-label="Commit details">
           <h3 className="arbor-graph-details-title">Uncommitted changes</h3>
           <div>{commit.summary.replace('// WIP: ', '')}</div>
-          <Button onClick={this.props.onClose}>
-            {__DARWIN__ ? 'Show Changes' : 'Show changes'}
+          <p className="arbor-graph-details-hint">
+            Review and commit them from the list on the left.
+          </p>
+          <Button onClick={this.props.onShowChanges}>
+            {__DARWIN__ ? 'Show Diff' : 'Show diff'}
           </Button>
         </aside>
       )
@@ -634,7 +663,6 @@ export class ArborGraphView extends React.Component<
     return (
       <div className="arbor-graph-view">
         <div className="arbor-graph-toolbar">
-          <h2 className="arbor-graph-title">Graph</h2>
           <TextBox
             className="arbor-graph-filter"
             placeholder="Filter by summary, SHA, author or ref"
@@ -645,12 +673,23 @@ export class ArborGraphView extends React.Component<
           <Button onClick={this.onRefresh} ariaLabel="Refresh graph">
             <Octicon symbol={octicons.sync} /> Refresh
           </Button>
-          <Button onClick={this.props.onClose} ariaLabel="Close graph">
-            <Octicon symbol={octicons.x} /> Close
+          <Button
+            onClick={this.onToggleRefsPanel}
+            ariaLabel="Toggle branches panel"
+          >
+            <Octicon symbol={octicons.gitBranch} />{' '}
+            {this.state.showRefsPanel ? 'Hide branches' : 'Show branches'}
           </Button>
         </div>
         {error !== null && <div className="arbor-graph-error">{error}</div>}
         <div className="arbor-graph-body">
+          {this.state.showRefsPanel && (
+            <ArborGraphSidebar
+              repository={this.props.repository}
+              dispatcher={this.props.dispatcher}
+              onSelectRef={this.onSelectRef}
+            />
+          )}
           <div className="arbor-graph-list">
             {this.renderHeader()}
             {rows.length === 0 ? (
@@ -668,6 +707,7 @@ export class ArborGraphView extends React.Component<
                 onRowClick={this.onRowClick}
                 onRowContextMenu={this.onRowContextMenu}
                 onScroll={this.onScroll}
+                scrollToRow={this.state.scrollToRow}
                 getRowAriaLabel={this.getRowAriaLabel}
                 invalidationProps={{
                   rows,

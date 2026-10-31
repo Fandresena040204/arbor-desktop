@@ -139,6 +139,8 @@
 
 .arbor-graph-row {
   height: 100%;
+  width: 100%;
+  box-sizing: border-box;
   border-left: 3px solid transparent;
   cursor: default;
 
@@ -306,5 +308,163 @@
   .arbor-graph-details-parents button {
     font-family: var(--font-family-monospace);
     margin-right: var(--spacing-half);
+  }
+}
+
+// Arbor: the Changes tab hosts the graph (or the diff) in its main area.
+
+// Transparent wrapper of the changes sidebar, so its layout is unchanged.
+.arbor-changes-sidebar {
+  display: contents;
+}
+
+.arbor-changes-main {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 0;
+
+  > :not(.arbor-changes-switch) {
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+}
+
+.arbor-changes-switch {
+  display: flex;
+  flex-shrink: 0;
+  gap: 2px;
+  padding: var(--spacing-half) var(--spacing);
+  border-bottom: var(--base-border);
+  background: var(--box-alt-background-color);
+
+  .arbor-changes-switch-button {
+    padding: 2px var(--spacing);
+    border: var(--base-border);
+    border-radius: var(--border-radius);
+    background: var(--background-color);
+    color: var(--text-secondary-color);
+    font-size: var(--font-size-sm);
+    cursor: pointer;
+
+    &.selected {
+      background: var(--box-selected-active-background-color);
+      border-color: var(--box-selected-active-background-color);
+      color: var(--box-selected-active-text-color);
+    }
+  }
+}
+
+// Branches, remotes and tags, like GitKraken's left panel.
+.arbor-graph-sidebar {
+  width: 210px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  border-right: var(--base-border);
+  min-height: 0;
+
+  .arbor-graph-sidebar-filter {
+    padding: var(--spacing-half);
+  }
+
+  .arbor-graph-sidebar-lists {
+    flex: 1;
+    overflow: auto;
+    padding-bottom: var(--spacing);
+  }
+
+  ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .arbor-graph-sidebar-title {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-half);
+    width: 100%;
+    padding: var(--spacing-half);
+    border: none;
+    background: none;
+    color: var(--text-secondary-color);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    text-transform: uppercase;
+    cursor: pointer;
+
+    .count {
+      margin-left: auto;
+      font-weight: normal;
+    }
+  }
+
+  .arbor-graph-sidebar-ref {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-half);
+    width: 100%;
+    padding: 3px var(--spacing) 3px calc(var(--spacing) * 1.5);
+    border: none;
+    background: none;
+    color: var(--text-color);
+    text-align: left;
+    cursor: pointer;
+
+    &:hover {
+      background: var(--box-hover-background-color);
+    }
+
+    &.current {
+      font-weight: var(--font-weight-semibold);
+    }
+
+    .octicon {
+      flex-shrink: 0;
+      color: var(--text-secondary-color);
+    }
+
+    .name {
+      min-width: 0;
+      @include ellipsis;
+    }
+  }
+}
+
+.arbor-graph-details .arbor-graph-details-hint {
+  margin: 0;
+  color: var(--text-secondary-color);
+  font-size: var(--font-size-sm);
+}
+
+// Keep the filter at its natural height above the lists.
+.arbor-graph-sidebar .arbor-graph-sidebar-filter {
+  flex: 0 0 auto;
+}
+
+// Narrow graph: drop the secondary columns first, like GitLens.
+.arbor-graph-list {
+  container-type: inline-size;
+}
+
+@container (max-width: 640px) {
+  .arbor-graph-header,
+  .arbor-graph-row {
+    .author,
+    .date {
+      display: none;
+    }
+
+    .refs {
+      width: 120px;
+    }
+  }
+}
+
+@media (max-width: 1200px) {
+  .arbor-graph-details {
+    width: 240px;
   }
 }
