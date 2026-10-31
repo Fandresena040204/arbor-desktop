@@ -9,6 +9,8 @@ import {
 } from '../../../models/status'
 import { join } from 'path'
 import { Repository } from '../../../models/repository'
+// Arbor: open the built-in merge tool.
+import { PopupType } from '../../../models/popup'
 import { Dispatcher } from '../../dispatcher'
 import { showContextualMenu } from '../../../lib/menu-item'
 import { Octicon } from '../../octicons'
@@ -408,6 +410,16 @@ const makeMarkerConflictDropdownClickHandler = (
   return () => {
     const absoluteFilePath = join(repository.path, relativeFilePath)
     const items: IMenuItem[] = [
+      // Arbor: resolve the file in the built-in 3-way merge tool.
+      {
+        label: __DARWIN__ ? 'Resolve in Merge Tool…' : 'Resolve in merge tool…',
+        action: () =>
+          dispatcher.showPopup({
+            type: PopupType.ArborDialog,
+            dialog: { kind: 'merge-tool', repository, path: relativeFilePath },
+          }),
+      },
+      { type: 'separator' },
       {
         label: OpenWithDefaultProgramLabel,
         action: () => openFile(absoluteFilePath, dispatcher),

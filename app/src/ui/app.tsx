@@ -50,6 +50,9 @@ import { DeleteBranch, DeleteRemoteBranch } from './delete-branch'
 import { CloningRepositoryView } from './cloning-repository'
 // Arbor: interactive terminal panel at the bottom of the repository view.
 import { ArborTerminalPanel } from './arbor/terminal/terminal-panel'
+// Arbor: feature dialogs and the commit graph view.
+import { ArborDialogHost } from './arbor/arbor-dialog-host'
+import { ArborGraphView } from './arbor/graph/graph-view'
 import {
   Toolbar,
   ToolbarDropdown,
@@ -287,6 +290,9 @@ export class App extends React.Component<IAppProps, IAppState> {
    */
   private arborTerminalOpen = false
 
+  /** Arbor: whether the commit graph replaces the repository view. */
+  private arborGraphOpen = false
+
   private updateIntervalHandle?: number
 
   private repositoryViewRef = React.createRef<RepositoryView>()
@@ -495,6 +501,15 @@ export class App extends React.Component<IAppProps, IAppState> {
         this.arborTerminalOpen = !this.arborTerminalOpen
         this.forceUpdate()
         return undefined
+      // Arbor: commit graph, branch comparison and interactive rebase.
+      case 'arbor-toggle-graph':
+        this.arborGraphOpen = !this.arborGraphOpen
+        this.forceUpdate()
+        return undefined
+      case 'arbor-compare-branches':
+        return this.showArborDialog('compare-branches')
+      case 'arbor-interactive-rebase':
+        return this.showArborDialog('interactive-rebase')
       case 'remove-repository':
         return this.removeRepository(this.getRepository())
       case 'create-repository':
@@ -3055,6 +3070,17 @@ export class App extends React.Component<IAppProps, IAppState> {
           />
         )
       }
+      // Arbor: every Arbor dialog.
+      case PopupType.ArborDialog: {
+        return (
+          <ArborDialogHost
+            key={`arbor-dialog-${popup.dialog.kind}`}
+            dialog={popup.dialog}
+            dispatcher={this.props.dispatcher}
+            onDismissed={onPopupDismissedFn}
+          />
+        )
+      }
       default:
         return assertNever(popup, `Unknown popup type: ${popup}`)
     }
@@ -3962,6 +3988,25 @@ export class App extends React.Component<IAppProps, IAppState> {
     )
   }
 
+  /** Arbor: open a repository-scoped Arbor dialog for the selected repository. */
+  private showArborDialog(kind: 'compare-branches' | 'interactive-rebase') {
+    const repository = this.getRepository()
+    if (!(repository instanceof Repository)) {
+      return
+    }
+
+    this.props.dispatcher.showPopup({
+      type: PopupType.ArborDialog,
+      dialog: { kind, repository },
+    })
+  }
+
+  /** Arbor: the function to call when the user closes the commit graph. */
+  private onArborGraphClose = () => {
+    this.arborGraphOpen = false
+    this.forceUpdate()
+  }
+
   /** Arbor: the function to call when the user closes the terminal panel. */
   private onArborTerminalClose = () => {
     this.arborTerminalOpen = false
@@ -4062,7 +4107,16 @@ export class App extends React.Component<IAppProps, IAppState> {
 
       return (
         <div className="arbor-repository-with-terminal">
-          {repositoryView}
+          {this.arborGraphOpen ? (
+            <ArborGraphView
+              key={selectedState.repository.hash}
+              repository={selectedState.repository}
+              dispatcher={this.props.dispatcher}
+              onClose={this.onArborGraphClose}
+            />
+          ) : (
+            repositoryView
+          )}
           {this.arborTerminalOpen && (
             <ArborTerminalPanel
               repositoryPath={selectedState.repository.path}

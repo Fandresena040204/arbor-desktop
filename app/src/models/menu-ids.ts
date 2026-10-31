@@ -42,6 +42,9 @@ export type MenuIDs =
   | 'show-worktrees-list'
   // Arbor: id of the integrated terminal panel toggle menu item.
   | 'arbor-toggle-terminal'
+  | 'arbor-toggle-graph'
+  | 'arbor-compare-branches'
+  | 'arbor-interactive-rebase'
   | 'preview-pull-request'
   | 'decrease-active-resizable-width'
   | 'increase-active-resizable-width'

@@ -51,6 +51,9 @@ export type MenuEvent =
   | 'toggle-changes-filter'
   // Arbor: id of the integrated terminal panel toggle menu item.
   | 'arbor-toggle-terminal'
+  | 'arbor-toggle-graph'
+  | 'arbor-compare-branches'
+  | 'arbor-interactive-rebase'
   | TestMenuEvent
 
 /**

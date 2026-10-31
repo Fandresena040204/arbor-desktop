@@ -220,6 +220,12 @@ export function buildDefaultMenuTemplate({
         accelerator: 'CmdOrCtrl+`',
         click: emit('arbor-toggle-terminal'),
       },
+      {
+        label: __DARWIN__ ? 'Toggle Graph' : 'Toggle &graph',
+        id: 'arbor-toggle-graph',
+        accelerator: 'CmdOrCtrl+Alt+G',
+        click: emit('arbor-toggle-graph'),
+      },
       separator,
       {
         label: __DARWIN__ ? 'Go to Summary' : 'Go to &Summary',
@@ -496,6 +502,19 @@ export function buildDefaultMenuTemplate({
       id: 'rebase-branch',
       accelerator: 'CmdOrCtrl+Shift+E',
       click: emit('rebase-branch'),
+    },
+    // Arbor: compare any two branches and interactive rebase.
+    {
+      label: __DARWIN__ ? 'Compare Branches…' : 'Compare branches…',
+      id: 'arbor-compare-branches',
+      accelerator: 'CmdOrCtrl+Alt+C',
+      click: emit('arbor-compare-branches'),
+    },
+    {
+      label: __DARWIN__ ? 'Interactive Rebase…' : '&Interactive rebase…',
+      id: 'arbor-interactive-rebase',
+      accelerator: 'CmdOrCtrl+Alt+I',
+      click: emit('arbor-interactive-rebase'),
     },
     separator,
     {

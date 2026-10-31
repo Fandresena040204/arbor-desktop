@@ -28,6 +28,8 @@ import { BypassReasonType } from '../ui/secret-scanning/bypass-push-protection-d
 import { TerminalOutput, TerminalOutputListener } from '../lib/git'
 import type { IBYOKModel, IBYOKProvider } from '../lib/copilot/byok'
 import { IDeleteWorktreeOptions, WorktreeEntry } from './worktree'
+// Arbor: Arbor feature dialogs.
+import { ArborDialog } from './arbor-dialog'
 
 export enum PopupType {
   RenameBranch = 'RenameBranch',
@@ -124,6 +126,8 @@ export enum PopupType {
   ConfirmDeleteCopilotBYOKProvider = 'ConfirmDeleteCopilotBYOKProvider',
   CopilotConflictResolutionAlwaysNudge = 'CopilotConflictResolutionAlwaysNudge',
   DeleteWorktreeFailed = 'DeleteWorktreeFailed',
+  // Arbor: every Arbor dialog, see models/arbor-dialog.ts
+  ArborDialog = 'ArborDialog',
 }
 
 interface IBasePopup {
@@ -557,5 +561,10 @@ export type PopupDetail =
       error: Error
       originalWorktree: WorktreeEntry | null
       options: IDeleteWorktreeOptions
+    }
+  // Arbor: every Arbor dialog.
+  | {
+      type: PopupType.ArborDialog
+      dialog: ArborDialog
     }
 export type Popup = IBasePopup & PopupDetail
