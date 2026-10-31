@@ -18,6 +18,14 @@ import { NotificationCallback } from 'desktop-notifications'
 import { DesktopAliveEvent } from './stores/alive-store'
 import { CLIAction } from './cli-action'
 
+/** Arbor: result of starting an integrated terminal session. */
+export type ArborTerminalStartResult =
+  | {
+      readonly id: number
+      readonly shell: { readonly file: string; readonly args: string[] }
+    }
+  | { readonly error: string }
+
 /**
  * Defines the simplex IPC channel names we use from the renderer
  * process along with their signatures. This type is used from both
@@ -93,6 +101,12 @@ export type RequestChannels = {
   'show-installing-update': () => void
   'install-windows-cli': () => void
   'uninstall-windows-cli': () => void
+  // Arbor: integrated terminal, see app/src/main-process/arbor/terminal-host.ts
+  'arbor-terminal-write': (id: number, data: string) => void
+  'arbor-terminal-resize': (id: number, cols: number, rows: number) => void
+  'arbor-terminal-kill': (id: number) => void
+  'arbor-terminal-data': (id: number, data: string) => void
+  'arbor-terminal-exit': (id: number, exitCode: number) => void
 }
 
 /**
@@ -143,4 +157,10 @@ export type RequestResponseChannels = {
   ) => Promise<string | null>
   'get-notifications-permission': () => Promise<DesktopNotificationPermission>
   'request-notifications-permission': () => Promise<boolean>
+  // Arbor: start a shell for the integrated terminal.
+  'arbor-terminal-start': (
+    cwd: string,
+    cols: number,
+    rows: number
+  ) => Promise<ArborTerminalStartResult>
 }

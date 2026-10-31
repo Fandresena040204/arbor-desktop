@@ -49,6 +49,8 @@ export type MenuEvent =
   | 'decrease-active-resizable-width'
   | 'increase-active-resizable-width'
   | 'toggle-changes-filter'
+  // Arbor: id of the integrated terminal panel toggle menu item.
+  | 'arbor-toggle-terminal'
   | TestMenuEvent
 
 /**

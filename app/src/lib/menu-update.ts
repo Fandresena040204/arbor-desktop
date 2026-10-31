@@ -144,6 +144,8 @@ const allMenuIds: ReadonlyArray<MenuIDs> = [
   'toggle-stashed-changes',
   'create-worktree',
   'show-worktrees-list',
+  // Arbor: id of the integrated terminal panel toggle menu item.
+  'arbor-toggle-terminal',
 ]
 
 function getAllMenusDisabledBuilder(): MenuStateBuilder {
@@ -249,6 +251,8 @@ function getRepositoryMenuBuilder(state: IAppState): MenuStateBuilder {
     'show-history',
     'show-branches-list',
     'show-worktrees-list',
+    // Arbor: the terminal panel is only relevant for a selected repository.
+    'arbor-toggle-terminal',
     'open-external-editor',
     ...(enableCopilotAppHandoff() ? (['open-in-copilot-app'] as const) : []),
     'open-with-external-editor',

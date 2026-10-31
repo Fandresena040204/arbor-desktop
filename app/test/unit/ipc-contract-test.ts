@@ -71,6 +71,12 @@ describe('IPC channel contract', () => {
     'show-installing-update',
     'install-windows-cli',
     'uninstall-windows-cli',
+    // Arbor: integrated terminal.
+    'arbor-terminal-write',
+    'arbor-terminal-resize',
+    'arbor-terminal-kill',
+    'arbor-terminal-data',
+    'arbor-terminal-exit',
   ] as const
 
   const expectedResponseChannels = [
@@ -102,6 +108,8 @@ describe('IPC channel contract', () => {
     'show-notification',
     'get-notifications-permission',
     'request-notifications-permission',
+    // Arbor: integrated terminal.
+    'arbor-terminal-start',
   ] as const
 
   describe('RequestChannels', () => {

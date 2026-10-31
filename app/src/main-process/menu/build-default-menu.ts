@@ -213,6 +213,13 @@ export function buildDefaultMenuTemplate({
         click: emit('show-worktrees'),
         visible: enableWorktreeSupport(),
       },
+      // Arbor: menu item to toggle the integrated terminal panel.
+      {
+        label: __DARWIN__ ? 'Toggle Terminal' : 'Toggle &terminal',
+        id: 'arbor-toggle-terminal',
+        accelerator: 'CmdOrCtrl+`',
+        click: emit('arbor-toggle-terminal'),
+      },
       separator,
       {
         label: __DARWIN__ ? 'Go to Summary' : 'Go to &Summary',

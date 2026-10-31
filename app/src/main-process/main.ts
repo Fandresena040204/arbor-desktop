@@ -14,6 +14,8 @@ import {
 import * as Fs from 'fs'
 
 import { AppWindow } from './app-window'
+// Arbor: integrated terminal shells run in the main process.
+import { registerArborTerminalHost } from './arbor/terminal-host'
 import { buildDefaultMenu, getAllMenuItems } from './menu'
 import { shellNeedsPatching, updateEnvironmentForProcess } from '../lib/shell'
 import { parseAppURL } from '../lib/parse-app-url'
@@ -375,6 +377,9 @@ app.on('ready', () => {
       askForConfirmationOnForcePush: false,
     })
   )
+
+  // Arbor: IPC handlers of the integrated terminal.
+  registerArborTerminalHost()
 
   ipcMain.on('update-accounts', (event, accounts) => {
     if (event.sender !== mainWindow?.webContents) {

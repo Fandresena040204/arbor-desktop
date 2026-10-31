@@ -48,6 +48,8 @@ import { RepositoryView } from './repository'
 import { RenameBranch } from './rename-branch'
 import { DeleteBranch, DeleteRemoteBranch } from './delete-branch'
 import { CloningRepositoryView } from './cloning-repository'
+// Arbor: interactive terminal panel at the bottom of the repository view.
+import { ArborTerminalPanel } from './arbor/terminal/terminal-panel'
 import {
   Toolbar,
   ToolbarDropdown,
@@ -278,6 +280,13 @@ export class App extends React.Component<IAppProps, IAppState> {
    */
   private lastKeyPressed: string | null = null
 
+  /**
+   * Arbor: whether the integrated terminal panel is currently visible
+   * below the repository view. Kept out of the AppStore-managed state
+   * since it's purely a view concern.
+   */
+  private arborTerminalOpen = false
+
   private updateIntervalHandle?: number
 
   private repositoryViewRef = React.createRef<RepositoryView>()
@@ -481,6 +490,11 @@ export class App extends React.Component<IAppProps, IAppState> {
         return this.showWorktrees()
       case 'create-worktree':
         return this.showCreateWorktree()
+      // Arbor: toggle the visibility of the integrated terminal panel.
+      case 'arbor-toggle-terminal':
+        this.arborTerminalOpen = !this.arborTerminalOpen
+        this.forceUpdate()
+        return undefined
       case 'remove-repository':
         return this.removeRepository(this.getRepository())
       case 'create-repository':
@@ -3948,6 +3962,12 @@ export class App extends React.Component<IAppProps, IAppState> {
     )
   }
 
+  /** Arbor: the function to call when the user closes the terminal panel. */
+  private onArborTerminalClose = () => {
+    this.arborTerminalOpen = false
+    this.forceUpdate()
+  }
+
   private renderRepository() {
     const { accounts } = this.state
 
@@ -3975,7 +3995,9 @@ export class App extends React.Component<IAppProps, IAppState> {
     }
 
     if (selectedState.type === SelectionType.Repository) {
-      return (
+      // Arbor: wrap the repository view and the integrated terminal panel
+      // in a common flex column container so the panel can sit below it.
+      const repositoryView = (
         <RepositoryView
           ref={this.repositoryViewRef}
           // When switching repositories we want to remount the RepositoryView
@@ -4036,6 +4058,18 @@ export class App extends React.Component<IAppProps, IAppState> {
           allowEmptyCommit={selectedState.state.allowEmptyCommit}
           onUpdateCommitOptions={this.onUpdateCommitOptions}
         />
+      )
+
+      return (
+        <div className="arbor-repository-with-terminal">
+          {repositoryView}
+          {this.arborTerminalOpen && (
+            <ArborTerminalPanel
+              repositoryPath={selectedState.repository.path}
+              onClose={this.onArborTerminalClose}
+            />
+          )}
+        </div>
       )
     } else if (selectedState.type === SelectionType.CloningRepository) {
       return (

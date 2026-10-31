@@ -1,0 +1,94 @@
+// Arbor: styles for the interactive terminal panel below the repository view.
+
+// A repository view possibly followed by the terminal panel, laid out
+// vertically.
+.arbor-repository-with-terminal {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+
+  > #repository {
+    // The repository view already sets flex: 1 1 auto upstream, but it
+    // also sets height: 100% which doesn't play well with the panel.
+    height: auto;
+    min-height: 0;
+  }
+}
+
+.arbor-terminal-panel {
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 auto;
+  height: 260px;
+  border-top: var(--base-border);
+  background-color: var(--background-color);
+  color: var(--text-color);
+
+  .arbor-terminal-resize-handle {
+    flex-shrink: 0;
+    height: 5px;
+    cursor: ns-resize;
+  }
+
+  .arbor-terminal-header {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: var(--spacing);
+    padding: var(--spacing-half) var(--spacing);
+    flex-shrink: 0;
+
+    .arbor-terminal-title {
+      font-weight: var(--font-weight-semibold);
+    }
+
+    .arbor-terminal-shell {
+      font-family: var(--font-family-monospace);
+      font-size: var(--font-size-sm);
+      color: var(--text-secondary-color);
+      flex: 1;
+      min-width: 0;
+      @include ellipsis;
+    }
+
+    .arbor-terminal-header-actions {
+      display: flex;
+      flex-direction: row;
+      gap: var(--spacing-half);
+    }
+  }
+
+  .arbor-terminal-body {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    padding: 0 var(--spacing);
+    position: relative;
+
+    .arbor-terminal-error {
+      padding: var(--spacing);
+      color: var(--error-color);
+
+      p {
+        margin-bottom: var(--spacing);
+      }
+    }
+
+    .arbor-terminal-exited {
+      flex-shrink: 0;
+      padding: var(--spacing-half) 0;
+      color: var(--text-secondary-color);
+      display: flex;
+      gap: var(--spacing);
+      align-items: center;
+    }
+
+    .arbor-terminal-xterm {
+      flex: 1;
+      min-height: 0;
+      overflow: hidden;
+    }
+  }
+}

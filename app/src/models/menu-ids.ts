@@ -40,6 +40,8 @@ export type MenuIDs =
   | 'create-issue-in-repository-on-github'
   | 'create-worktree'
   | 'show-worktrees-list'
+  // Arbor: id of the integrated terminal panel toggle menu item.
+  | 'arbor-toggle-terminal'
   | 'preview-pull-request'
   | 'decrease-active-resizable-width'
   | 'increase-active-resizable-width'
