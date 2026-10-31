@@ -4,7 +4,7 @@
 
 import type { ElectronApplication, Page } from '@playwright/test'
 import { dismissMoveToApplicationsDialog, expect } from './e2e-fixtures'
-import { smokeRepoFileName, smokeRepoPath } from './test-helpers'
+import { smokeRepoFileName, smokeRepoName, smokeRepoPath } from './test-helpers'
 
 /** Complete the welcome flow and open the smoke repository. */
 export async function openSmokeRepository(page: Page) {
@@ -55,13 +55,26 @@ export async function openSmokeRepository(page: Page) {
     .first()
   const addRepositoryDialog = page.locator('dialog#add-existing-repository')
 
+  // Once a previous test file committed the smoke file, the repository is
+  // open without it in the changes list.
+  const repositoryOpen = page
+    .locator('#desktop-app-toolbar')
+    .getByText(smokeRepoName)
+
   await Promise.race([
     repoFile.waitFor({ state: 'visible', timeout: 15000 }).catch(() => {}),
+    repositoryOpen
+      .waitFor({ state: 'visible', timeout: 15000 })
+      .catch(() => {}),
     addRepositoryDialog
       .waitFor({ state: 'visible', timeout: 15000 })
       .catch(() => {}),
     addButton.waitFor({ state: 'visible', timeout: 15000 }).catch(() => {}),
   ])
+
+  if (await repositoryOpen.isVisible().catch(() => false)) {
+    return
+  }
 
   if (!(await repoFile.isVisible().catch(() => false))) {
     if (!(await addRepositoryDialog.isVisible().catch(() => false))) {

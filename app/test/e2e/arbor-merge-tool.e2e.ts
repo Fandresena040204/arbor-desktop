@@ -146,8 +146,16 @@ test.describe('Arbor merge tool', () => {
     )
     expect(git(['diff', '--name-only', '--diff-filter=U'])).toBe('')
 
-    // Conclude the merge so the following test files get a clean repository.
-    git(['commit', '--no-edit'])
-    await page.keyboard.press('Escape')
+    // Desktop's conflicts dialog now lets the user conclude the merge.
+    await page.getByRole('button', { name: 'Continue merge' }).click()
+    await expect
+      .poll(
+        () => fs.existsSync(path.join(smokeRepoPath, '.git', 'MERGE_HEAD')),
+        {
+          timeout: 15000,
+        }
+      )
+      .toBe(false)
+    await expect(page.locator('dialog[open]')).toHaveCount(0)
   })
 })

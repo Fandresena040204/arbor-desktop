@@ -66,9 +66,11 @@ test.describe('Arbor interactive rebase', () => {
 
   test('prepares a clean history', async ({ app, mainWindow: page }) => {
     await openSmokeRepository(page)
-    // The smoke repository starts with an uncommitted file.
-    git(['add', '-A'])
-    git(['commit', '-m', 'smoke'])
+    // The smoke repository may start with an uncommitted file.
+    if (git(['status', '--porcelain']) !== '') {
+      git(['add', '-A'])
+      git(['commit', '-m', 'smoke'])
+    }
     for (const name of ['one', 'two', 'three', 'four']) {
       shas[name] = commitFile(name)
     }

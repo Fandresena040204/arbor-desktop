@@ -1,1 +1,221 @@
-// Arbor: styles of the graph UI.
+// Arbor: styles of the interactive commit graph.
+
+.arbor-graph-view {
+  // Branch colours, readable on both light and dark backgrounds.
+  --arbor-graph-color-0: #2f81f7;
+  --arbor-graph-color-1: #e5534b;
+  --arbor-graph-color-2: #3fb950;
+  --arbor-graph-color-3: #d29922;
+  --arbor-graph-color-4: #a371f7;
+  --arbor-graph-color-5: #39c5cf;
+  --arbor-graph-color-6: #db61a2;
+  --arbor-graph-color-7: #f0883e;
+
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--background-color);
+  color: var(--text-color);
+}
+
+.arbor-graph-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing);
+  padding: var(--spacing);
+  border-bottom: var(--base-border);
+  flex-shrink: 0;
+
+  .arbor-graph-title {
+    font-size: var(--font-size-md);
+    margin: 0;
+  }
+
+  .arbor-graph-filter {
+    flex: 1;
+    min-width: 0;
+    max-width: 420px;
+  }
+}
+
+.arbor-graph-error {
+  padding: var(--spacing);
+  color: var(--error-color);
+}
+
+.arbor-graph-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+.arbor-graph-list {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+
+  .list {
+    flex: 1;
+  }
+}
+
+.arbor-graph-empty {
+  padding: var(--spacing-double);
+  color: var(--text-secondary-color);
+}
+
+.arbor-graph-row {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing);
+  height: 100%;
+  padding-right: var(--spacing);
+  min-width: 0;
+  white-space: nowrap;
+
+  &.dimmed {
+    opacity: 0.35;
+  }
+
+  .arbor-graph-svg {
+    flex-shrink: 0;
+
+    path {
+      fill: none;
+      stroke-width: 2;
+    }
+
+    circle {
+      stroke-width: 2;
+    }
+
+    .head {
+      fill: none;
+      stroke-width: 1.5;
+    }
+  }
+
+  .arbor-graph-refs {
+    display: flex;
+    gap: var(--spacing-half);
+    flex-shrink: 0;
+    max-width: 40%;
+    overflow: hidden;
+  }
+
+  .arbor-graph-summary {
+    flex: 1;
+    min-width: 0;
+    @include ellipsis;
+  }
+
+  .arbor-graph-author,
+  .arbor-graph-date {
+    flex-shrink: 0;
+    color: var(--text-secondary-color);
+    font-size: var(--font-size-sm);
+  }
+
+  .arbor-graph-author {
+    max-width: 140px;
+    @include ellipsis;
+  }
+
+  .arbor-graph-sha {
+    flex-shrink: 0;
+    font-family: var(--font-family-monospace);
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary-color);
+  }
+}
+
+.arbor-graph-ref {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0 var(--spacing-half);
+  border-radius: var(--border-radius);
+  border: 1px solid;
+  font-size: var(--font-size-xs);
+  line-height: 16px;
+  white-space: nowrap;
+
+  .octicon {
+    width: 12px;
+    height: 12px;
+  }
+
+  &.local {
+    border-color: var(--arbor-graph-color-0);
+    color: var(--arbor-graph-color-0);
+  }
+
+  &.local.current {
+    background: var(--arbor-graph-color-0);
+    color: #fff;
+  }
+
+  &.remote {
+    border-color: var(--arbor-graph-color-4);
+    color: var(--arbor-graph-color-4);
+  }
+
+  &.tag {
+    border-color: var(--arbor-graph-color-3);
+    color: var(--arbor-graph-color-3);
+  }
+
+  &.head {
+    border-color: var(--arbor-graph-color-1);
+    color: var(--arbor-graph-color-1);
+  }
+}
+
+.arbor-graph-details {
+  width: 320px;
+  flex-shrink: 0;
+  border-left: var(--base-border);
+  padding: var(--spacing);
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing);
+
+  .arbor-graph-details-sha {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-half);
+
+    code {
+      font-size: var(--font-size-sm);
+      overflow-wrap: anywhere;
+    }
+  }
+
+  .arbor-graph-details-author,
+  .arbor-graph-details-date {
+    color: var(--text-secondary-color);
+    font-size: var(--font-size-sm);
+  }
+
+  .arbor-graph-details-refs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-half);
+  }
+
+  .arbor-graph-details-message {
+    margin: 0;
+    font-family: var(--font-family-sans-serif);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+
+  .arbor-graph-details-parents button {
+    font-family: var(--font-family-monospace);
+    margin-right: var(--spacing-half);
+  }
+}
