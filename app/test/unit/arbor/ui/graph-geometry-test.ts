@@ -1,6 +1,11 @@
 import assert from 'node:assert'
 import { describe, it } from 'node:test'
 import {
+  GraphAvatarRadius,
+  GraphLanePadding,
+  GraphLaneWidth,
+  GraphMergeRadius,
+  GraphRowHeight,
   graphRowNode,
   graphRowSvgPaths,
   graphSvgWidth,
@@ -12,120 +17,84 @@ import {
 import { computeGraphLayout } from '../../../../src/lib/arbor/graph/graph-layout'
 
 const c = (sha: string, ...parents: string[]) => ({ sha, parents })
+const x = (lane: number) => GraphLanePadding + lane * GraphLaneWidth
+const mid = GraphRowHeight / 2
 
 describe('arbor/ui/graph-geometry', () => {
-  describe('laneX', () => {
-    it('positions lanes on a 16px grid with an 8px padding', () => {
-      assert.strictEqual(laneX(0), 8)
-      assert.strictEqual(laneX(1), 24)
-      assert.strictEqual(laneX(3), 56)
-    })
+  it('positions lanes on a grid after the padding', () => {
+    assert.strictEqual(laneX(0), GraphLanePadding)
+    assert.strictEqual(laneX(3), GraphLanePadding + 3 * GraphLaneWidth)
   })
 
-  describe('laneY', () => {
-    it('maps top to the top edge, center to the middle and bottom to the bottom edge', () => {
-      assert.strictEqual(laneY('top'), 0)
-      assert.strictEqual(laneY('center'), 14)
-      assert.strictEqual(laneY('bottom'), 28)
-    })
-
-    it('honors a custom row height', () => {
-      assert.strictEqual(laneY('center', 40), 20)
-      assert.strictEqual(laneY('bottom', 40), 40)
-    })
+  it('maps row positions to y coordinates', () => {
+    assert.strictEqual(laneY('top'), 0)
+    assert.strictEqual(laneY('center'), mid)
+    assert.strictEqual(laneY('bottom'), GraphRowHeight)
+    assert.strictEqual(laneY('center', 40), 20)
   })
 
-  describe('graphSvgWidth', () => {
-    it('is the lane count times the lane width', () => {
-      assert.strictEqual(graphSvgWidth(4), 64)
-    })
+  it('makes the SVG wide enough for every lane and its padding', () => {
+    assert.strictEqual(graphSvgWidth(1), GraphLanePadding * 2)
+    assert.strictEqual(graphSvgWidth(4), x(3) + GraphLanePadding)
+    assert.strictEqual(graphSvgWidth(0), GraphLanePadding * 2)
   })
 
-  describe('laneColorVar', () => {
-    it('names one CSS variable per palette color', () => {
-      assert.strictEqual(laneColorVar(0), 'var(--arbor-graph-color-0)')
-      assert.strictEqual(laneColorVar(7), 'var(--arbor-graph-color-7)')
-    })
-
-    it('wraps negative and overflowing indexes into the palette', () => {
-      assert.strictEqual(laneColorVar(8), 'var(--arbor-graph-color-0)')
-      assert.strictEqual(laneColorVar(-1), 'var(--arbor-graph-color-7)')
-    })
+  it('names one CSS variable per palette color, wrapping around', () => {
+    assert.strictEqual(laneColorVar(0), 'var(--arbor-graph-color-0)')
+    assert.strictEqual(laneColorVar(8), 'var(--arbor-graph-color-0)')
+    assert.strictEqual(laneColorVar(-1), 'var(--arbor-graph-color-7)')
   })
 
-  describe('linePath', () => {
-    it('draws a straight segment when both ends share a lane', () => {
-      const d = linePath({
+  it('draws straight segments within a lane and curves across lanes', () => {
+    assert.strictEqual(
+      linePath({
         fromLane: 1,
         fromY: 'top',
         toLane: 1,
         toY: 'bottom',
         color: 0,
-      })
-      assert.strictEqual(d, 'M 24 0 L 24 28')
-    })
-
-    it('draws a cubic Bézier when the lanes differ', () => {
-      const d = linePath({
+      }),
+      `M ${x(1)} 0 L ${x(1)} ${GraphRowHeight}`
+    )
+    assert.strictEqual(
+      linePath({
         fromLane: 2,
         fromY: 'top',
         toLane: 0,
         toY: 'center',
         color: 0,
-      })
-      assert.strictEqual(d, 'M 40 0 C 40 7 8 7 8 14')
-    })
-
-    it('draws the outgoing segment of a node to another lane', () => {
-      const d = linePath({
-        fromLane: 0,
-        fromY: 'center',
-        toLane: 1,
-        toY: 'bottom',
-        color: 0,
-      })
-      assert.strictEqual(d, 'M 8 14 C 8 21 24 21 24 28')
-    })
+      }),
+      `M ${x(2)} 0 C ${x(2)} ${mid / 2} ${x(0)} ${mid / 2} ${x(0)} ${mid}`
+    )
   })
 
-  describe('graphRowSvgPaths', () => {
-    it('returns one path per row line, in order', () => {
-      const { rows } = computeGraphLayout([c('C', 'B'), c('B', 'A'), c('A')])
-
-      const paths = graphRowSvgPaths(rows[0])
-      assert.strictEqual(paths.length, 1)
-      assert.strictEqual(paths[0].d, 'M 8 14 L 8 28')
-      // A middle row has the line coming from its child, then the one going
-      // to its parent.
-      const pathsOfParent = graphRowSvgPaths(rows[1])
-      assert.deepStrictEqual(
-        pathsOfParent.map(p => p.d),
-        ['M 8 0 L 8 14', 'M 8 14 L 8 28']
-      )
-    })
+  it('returns the paths of a row in order', () => {
+    const { rows } = computeGraphLayout([c('C', 'B'), c('B', 'A'), c('A')])
+    assert.deepStrictEqual(
+      graphRowSvgPaths(rows[0]).map(p => p.d),
+      [`M ${x(0)} ${mid} L ${x(0)} ${GraphRowHeight}`]
+    )
+    // A middle row has the line from its child, then the one to its parent.
+    assert.deepStrictEqual(
+      graphRowSvgPaths(rows[1]).map(p => p.d),
+      [
+        `M ${x(0)} 0 L ${x(0)} ${mid}`,
+        `M ${x(0)} ${mid} L ${x(0)} ${GraphRowHeight}`,
+      ]
+    )
   })
 
-  describe('graphRowNode', () => {
-    it('sits at the center of the row lane', () => {
-      const { rows } = computeGraphLayout([c('A')])
-      const node = graphRowNode(rows[0])
-
-      assert.deepStrictEqual(node, {
-        cx: 8,
-        cy: 14,
-        r: 4,
-        isMerge: false,
-        isHead: false,
-      })
+  it('draws avatars for commits and small dots for merges', () => {
+    const { rows } = computeGraphLayout([c('B', 'A', 'A2'), c('A'), c('A2')])
+    assert.deepStrictEqual(graphRowNode(rows[1]), {
+      cx: x(0),
+      cy: mid,
+      r: GraphAvatarRadius,
+      isMerge: false,
+      isHead: false,
     })
-
-    it('reports merge and HEAD decoration', () => {
-      const { rows } = computeGraphLayout([c('B', 'A', 'A2'), c('A'), c('A2')])
-      const node = graphRowNode(rows[0], true, true)
-
-      assert.strictEqual(node.cx, 8)
-      assert.strictEqual(node.isMerge, true)
-      assert.strictEqual(node.isHead, true)
-    })
+    const merge = graphRowNode(rows[0], true, true)
+    assert.strictEqual(merge.r, GraphMergeRadius)
+    assert.strictEqual(merge.isHead, true)
   })
 })

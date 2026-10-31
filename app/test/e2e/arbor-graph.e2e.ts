@@ -86,19 +86,20 @@ test.describe('Arbor commit graph', () => {
     await graph(page).waitFor({ state: 'visible', timeout: 15000 })
 
     await expect(
-      graph(page).locator('.arbor-graph-ref.local.current')
+      graph(page).locator('.arbor-graph-ref.branch.current')
     ).toHaveText(current, { timeout: 15000 })
     await expect(rowWithRef(page, 'v-arbor-graph')).toHaveCount(1)
-    await expect(
-      rowWithRef(page, branch).locator('.arbor-graph-ref.remote')
-    ).toHaveText(`origin/${branch}`)
+    // The local branch and origin's copy share one badge, with a remote icon.
+    const badge = rowWithRef(page, branch).locator('.arbor-graph-ref')
+    await expect(badge).toHaveCount(1)
+    await expect(badge.locator('.remote-icon')).toHaveCount(1)
 
     // Two diverged branches need at least two lanes.
     const width = await graph(page)
       .locator('.arbor-graph-svg')
       .first()
       .getAttribute('width')
-    expect(Number(width)).toBeGreaterThanOrEqual(32)
+    expect(Number(width)).toBeGreaterThanOrEqual(50)
     await graph(page).screenshot({
       path: test.info().outputPath('arbor-graph.png'),
     })
@@ -147,6 +148,23 @@ test.describe('Arbor commit graph', () => {
         timeout: 30000,
       })
       .toBe('graph branch work')
+  })
+
+  test('shows uncommitted changes as a WIP row', async ({
+    mainWindow: page,
+  }) => {
+    fs.writeFileSync(path.join(smokeRepoPath, 'graph-wip.txt'), 'wip\n')
+    await graph(page).getByRole('button', { name: 'Refresh graph' }).click()
+
+    const wip = graph(page).locator('.arbor-graph-row.wip')
+    await expect(wip).toContainText('// WIP: 1 changed file', {
+      timeout: 15000,
+    })
+    await expect(wip.locator('circle.wip')).toHaveCount(1)
+    await graph(page).screenshot({
+      path: test.info().outputPath('arbor-graph-wip.png'),
+    })
+    fs.rmSync(path.join(smokeRepoPath, 'graph-wip.txt'))
   })
 
   test('closes back to the repository view', async ({ mainWindow: page }) => {

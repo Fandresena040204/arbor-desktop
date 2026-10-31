@@ -1,4 +1,5 @@
-// Arbor: styles of the interactive commit graph.
+// Arbor: styles of the interactive commit graph, in the spirit of GitLens and
+// GitKraken: ref column, coloured lanes, avatar nodes, tinted rows.
 
 .arbor-graph-view {
   // Branch colours, readable on both light and dark backgrounds.
@@ -60,6 +61,12 @@
   .list {
     flex: 1;
   }
+
+  // The tinted row background replaces the list's own selection colour.
+  .list-item.selected,
+  .list-item:focus {
+    background: none;
+  }
 }
 
 .arbor-graph-empty {
@@ -67,115 +74,192 @@
   color: var(--text-secondary-color);
 }
 
+// Shared column layout of the header and the rows.
+.arbor-graph-header,
 .arbor-graph-row {
   display: flex;
   align-items: center;
-  gap: var(--spacing);
-  height: 100%;
-  padding-right: var(--spacing);
   min-width: 0;
   white-space: nowrap;
+
+  .arbor-graph-col {
+    flex-shrink: 0;
+    padding: 0 var(--spacing-half);
+    overflow: hidden;
+  }
+
+  .refs {
+    width: 170px;
+    display: flex;
+    gap: 3px;
+    justify-content: flex-end;
+  }
+
+  .graph {
+    padding: 0;
+    display: flex;
+  }
+
+  // A zero basis keeps every row's columns aligned whatever the message.
+  .message {
+    flex: 1 1 0;
+    min-width: 80px;
+    text-overflow: ellipsis;
+  }
+
+  .author {
+    width: 120px;
+    text-overflow: ellipsis;
+  }
+
+  .date {
+    width: 90px;
+  }
+
+  .sha {
+    width: 64px;
+    font-family: var(--font-family-monospace);
+  }
+}
+
+.arbor-graph-header {
+  flex-shrink: 0;
+  height: 26px;
+  border-bottom: var(--base-border);
+  color: var(--text-secondary-color);
+  font-size: var(--font-size-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  user-select: none;
+
+  .graph {
+    padding: 0 var(--spacing-half);
+  }
+}
+
+.arbor-graph-row {
+  height: 100%;
+  border-left: 3px solid transparent;
+  cursor: default;
+
+  .author,
+  .date,
+  .sha {
+    color: var(--text-secondary-color);
+    font-size: var(--font-size-sm);
+  }
+
+  &:hover {
+    background: color-mix(in srgb, var(--row-color) 10%, transparent);
+  }
+
+  &.selected {
+    border-left-color: var(--row-color);
+    background: color-mix(in srgb, var(--row-color) 22%, transparent);
+  }
 
   &.dimmed {
     opacity: 0.35;
   }
 
+  &.wip .message {
+    font-style: italic;
+    color: var(--text-secondary-color);
+  }
+
   .arbor-graph-svg {
     flex-shrink: 0;
+    overflow: visible;
 
     path {
       fill: none;
       stroke-width: 2;
-    }
+      stroke-linecap: round;
 
-    circle {
-      stroke-width: 2;
+      &.wip {
+        stroke-dasharray: 3 3;
+      }
     }
 
     .head {
       fill: none;
-      stroke-width: 1.5;
+      stroke-width: 2;
     }
-  }
 
-  .arbor-graph-refs {
-    display: flex;
-    gap: var(--spacing-half);
-    flex-shrink: 0;
-    max-width: 40%;
-    overflow: hidden;
-  }
+    .avatar text {
+      fill: #fff;
+      font-size: 9px;
+      font-weight: 600;
+      font-family: var(--font-family-sans-serif);
+      pointer-events: none;
+    }
 
-  .arbor-graph-summary {
-    flex: 1;
-    min-width: 0;
-    @include ellipsis;
-  }
-
-  .arbor-graph-author,
-  .arbor-graph-date {
-    flex-shrink: 0;
-    color: var(--text-secondary-color);
-    font-size: var(--font-size-sm);
-  }
-
-  .arbor-graph-author {
-    max-width: 140px;
-    @include ellipsis;
-  }
-
-  .arbor-graph-sha {
-    flex-shrink: 0;
-    font-family: var(--font-family-monospace);
-    font-size: var(--font-size-sm);
-    color: var(--text-secondary-color);
+    .wip {
+      fill: var(--background-color);
+      stroke-width: 2;
+      stroke-dasharray: 3 2;
+    }
   }
 }
 
+// Ref badges take the colour of their branch lane, like GitLens/GitKraken.
 .arbor-graph-ref {
+  --badge-color: var(--arbor-graph-color-0);
+
   display: inline-flex;
   align-items: center;
-  gap: 2px;
-  padding: 0 var(--spacing-half);
-  border-radius: var(--border-radius);
-  border: 1px solid;
+  gap: 3px;
+  max-width: 150px;
+  min-width: 0;
+  padding: 0 6px;
+  height: 20px;
+  border-radius: 10px;
+  border: 1px solid var(--badge-color);
+  background: color-mix(in srgb, var(--badge-color) 18%, transparent);
+  color: var(--text-color);
   font-size: var(--font-size-xs);
-  line-height: 16px;
   white-space: nowrap;
 
   .octicon {
     width: 12px;
     height: 12px;
+    flex-shrink: 0;
+    color: var(--badge-color);
   }
 
-  &.local {
-    border-color: var(--arbor-graph-color-0);
-    color: var(--arbor-graph-color-0);
+  .name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
-  &.local.current {
-    background: var(--arbor-graph-color-0);
+  &.current {
+    background: var(--badge-color);
     color: #fff;
+    font-weight: var(--font-weight-semibold);
+
+    .octicon {
+      color: #fff;
+    }
   }
 
   &.remote {
-    border-color: var(--arbor-graph-color-4);
-    color: var(--arbor-graph-color-4);
+    border-style: dashed;
   }
 
   &.tag {
-    border-color: var(--arbor-graph-color-3);
-    color: var(--arbor-graph-color-3);
+    border-radius: 3px;
   }
 
-  &.head {
-    border-color: var(--arbor-graph-color-1);
-    color: var(--arbor-graph-color-1);
+  &.more {
+    border-color: var(--box-border-color);
+    background: none;
+    color: var(--text-secondary-color);
   }
 }
 
 .arbor-graph-details {
-  width: 320px;
+  width: 280px;
   flex-shrink: 0;
   border-left: var(--base-border);
   padding: var(--spacing);
@@ -183,6 +267,11 @@
   display: flex;
   flex-direction: column;
   gap: var(--spacing);
+
+  .arbor-graph-details-title {
+    margin: 0;
+    font-size: var(--font-size-md);
+  }
 
   .arbor-graph-details-sha {
     display: flex;

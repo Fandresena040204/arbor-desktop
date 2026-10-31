@@ -5,26 +5,26 @@ import {
 } from '../../../lib/arbor/graph/graph-layout'
 
 /** Height of a graph row, in pixels. */
-export const GraphRowHeight = 28
+export const GraphRowHeight = 32
 
 /** Horizontal distance between the centers of two lanes, in pixels. */
-export const GraphLaneWidth = 16
+export const GraphLaneWidth = 22
 
-/** Horizontal padding around the graph column, in pixels. */
-export const GraphLanePadding = 8
+/** Horizontal padding before the first and after the last lane, in pixels. */
+export const GraphLanePadding = 14
 
-/** Radius of a commit node disc, in pixels. */
-export const GraphNodeRadius = 4
+/** Radius of a commit's avatar node, in pixels. */
+export const GraphAvatarRadius = 10
 
-/** Radius of the HEAD double circle ring, in pixels. */
-export const GraphHeadRadius = 7
+/** Radius of a merge commit's dot, in pixels. */
+export const GraphMergeRadius = 5
 
 /** Number of colors in the lane palette (defined as CSS variables). */
 export const GraphColorCount = 8
 
 /** Width of the graph SVG column for the given number of lanes, in pixels. */
 export function graphSvgWidth(lanes: number): number {
-  return lanes * GraphLaneWidth
+  return GraphLanePadding * 2 + Math.max(0, lanes - 1) * GraphLaneWidth
 }
 
 /** Horizontal position, in pixels, of a lane within the graph SVG. */
@@ -98,11 +98,9 @@ export function graphRowSvgPaths(
 export interface IGraphNode {
   readonly cx: number
   readonly cy: number
-  /** Radius of the node disc. */
+  /** Radius of the node: an avatar, or a small dot for a merge. */
   readonly r: number
-  /** Whether the node should be drawn as a ring (a merge commit). */
   readonly isMerge: boolean
-  /** Whether the node should be surrounded by a second circle (HEAD). */
   readonly isHead: boolean
 }
 
@@ -116,7 +114,7 @@ export function graphRowNode(
   return {
     cx: laneX(row.lane),
     cy: laneY('center', height),
-    r: GraphNodeRadius,
+    r: isMerge ? GraphMergeRadius : GraphAvatarRadius,
     isMerge,
     isHead,
   }

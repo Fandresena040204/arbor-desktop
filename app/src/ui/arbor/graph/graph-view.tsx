@@ -10,7 +10,6 @@ import { IMenuItem, showContextualMenu } from '../../../lib/menu-item'
 import {
   getGraphCommits,
   IGraphCommit,
-  IGraphRef,
 } from '../../../lib/arbor/graph/graph-commits'
 import {
   computeGraphLayout,
@@ -28,12 +27,13 @@ import * as octicons from '../../octicons/octicons.generated'
 import { writeClipboardText } from '../../main-process-proxy'
 import { doesCommitMatchFilter } from './graph-filter'
 import {
-  GraphLaneWidth,
   GraphRowHeight,
   graphRowNode,
   graphRowSvgPaths,
+  graphSvgWidth,
   laneColorVar,
 } from './graph-geometry'
+import { getInitials, groupRefs, IGraphRefBadge } from './graph-refs'
 
 export interface IArborGraphViewProps {
   readonly repository: Repository
@@ -48,6 +48,12 @@ const PageSize = 300
 /** Load the next page when the user scrolls this close to the end. */
 const LoadMoreThreshold = 600
 
+/** SHA of the pseudo commit standing for uncommitted changes. */
+const WorkInProgressSha = 'arbor-work-in-progress'
+
+/** Most ref badges shown in a row before collapsing into "+N". */
+const MaxBadges = 2
+
 interface IArborGraphViewState {
   readonly commits: ReadonlyArray<IGraphCommit>
   readonly rows: ReadonlyArray<IGraphRow>
@@ -61,11 +67,13 @@ interface IArborGraphViewState {
   readonly currentBranch: string | null
   /** Full message of the selected commit, once loaded. */
   readonly message: string | null
+  /** Number of files with uncommitted changes (the WIP row). */
+  readonly changedFiles: number
 }
 
-const RefIcons: Record<IGraphRef['type'], typeof octicons.tag> = {
+const BadgeIcons: Record<IGraphRefBadge['kind'], typeof octicons.tag> = {
   head: octicons.gitCommit,
-  local: octicons.gitBranch,
+  branch: octicons.gitBranch,
   remote: octicons.globe,
   tag: octicons.tag,
 }
@@ -96,6 +104,7 @@ export class ArborGraphView extends React.Component<
       filter: '',
       currentBranch: null,
       message: null,
+      changedFiles: 0,
     }
   }
 
@@ -121,13 +130,19 @@ export class ArborGraphView extends React.Component<
       error: null,
     })
 
-    const headRef = await getSymbolicRef(this.props.repository, 'HEAD')
+    const { repository } = this.props
+    const [headRef, status] = await Promise.all([
+      getSymbolicRef(repository, 'HEAD'),
+      git(['status', '--porcelain'], repository.path, 'arborGraphStatus'),
+    ])
     if (this.isMounted && generation === this.loadGeneration) {
       this.setState({
         currentBranch:
           headRef !== null && headRef.startsWith('refs/heads/')
             ? headRef.substring('refs/heads/'.length)
             : null,
+        changedFiles: status.stdout.split('\n').filter(l => l.length > 0)
+          .length,
       })
       await this.loadMore(generation)
     }
@@ -136,24 +151,32 @@ export class ArborGraphView extends React.Component<
   private async loadMore(generation = this.loadGeneration) {
     this.setState({ loading: true })
     try {
-      const skip = this.state.commits.length
-      const page = await getGraphCommits(this.props.repository, PageSize, skip)
+      const loaded = this.state.commits.filter(
+        c => c.sha !== WorkInProgressSha
+      ).length
+      const page = await getGraphCommits(
+        this.props.repository,
+        PageSize,
+        loaded
+      )
       if (!this.isMounted || generation !== this.loadGeneration) {
         return
       }
 
-      const layout = computeGraphLayout(page, this.state.layoutState)
+      const items = loaded === 0 ? this.withWorkInProgress(page) : page
+      const layout = computeGraphLayout(items, this.state.layoutState)
       this.setState(state => ({
-        commits: [...state.commits, ...page],
+        commits: [...state.commits, ...items],
         rows: [...state.rows, ...layout.rows],
         layoutState: layout.state,
         maxWidth: Math.max(state.maxWidth, layout.maxWidth),
         hasMore: page.length === PageSize,
         loading: false,
-        selected: state.selected === -1 && page.length > 0 ? 0 : state.selected,
+        selected:
+          state.selected === -1 && items.length > 0 ? 0 : state.selected,
       }))
-      if (skip === 0 && page.length > 0) {
-        this.loadMessage(page[0].sha)
+      if (loaded === 0 && items.length > 0) {
+        this.loadMessage(items[0].sha)
       }
     } catch (e) {
       log.error(
@@ -169,8 +192,40 @@ export class ArborGraphView extends React.Component<
     }
   }
 
+  /**
+   * Put a pseudo commit for the uncommitted changes on top of HEAD, like the
+   * WIP row of GitLens and GitKraken.
+   */
+  private withWorkInProgress(
+    page: ReadonlyArray<IGraphCommit>
+  ): ReadonlyArray<IGraphCommit> {
+    const head = page.find(c => c.isHead)
+    const { changedFiles } = this.state
+    if (head === undefined || changedFiles === 0) {
+      return page
+    }
+
+    const wip: IGraphCommit = {
+      sha: WorkInProgressSha,
+      shortSha: '',
+      parents: [head.sha],
+      summary: `// WIP: ${changedFiles} ${
+        changedFiles === 1 ? 'changed file' : 'changed files'
+      }`,
+      authorName: '',
+      authorEmail: '',
+      authorDate: Date.now(),
+      refs: [],
+      isHead: false,
+    }
+    return [wip, ...page]
+  }
+
   private async loadMessage(sha: string) {
     this.setState({ message: null })
+    if (sha === WorkInProgressSha) {
+      return
+    }
     const commit = await getCommit(this.props.repository, sha)
     const selected = this.state.commits[this.state.selected]
     if (this.isMounted && selected?.sha === sha) {
@@ -254,7 +309,7 @@ export class ArborGraphView extends React.Component<
   ) => {
     event.preventDefault()
     const commit = this.state.commits[row]
-    if (commit === undefined) {
+    if (commit === undefined || commit.sha === WorkInProgressSha) {
       return
     }
     this.select(row)
@@ -357,38 +412,77 @@ export class ArborGraphView extends React.Component<
   }
 
   private renderGraphCell(row: IGraphRow, commit: IGraphCommit) {
-    const width = this.state.maxWidth * GraphLaneWidth
+    const isWip = commit.sha === WorkInProgressSha
     const node = graphRowNode(row, commit.parents.length > 1, commit.isHead)
     const color = laneColorVar(row.color)
 
     return (
       <svg
         className="arbor-graph-svg"
-        width={width}
+        width={graphSvgWidth(this.state.maxWidth)}
         height={GraphRowHeight}
         aria-hidden={true}
       >
         {graphRowSvgPaths(row).map((p, i) => (
-          <path key={i} d={p.d} stroke={laneColorVar(p.color)} />
+          <path
+            key={i}
+            d={p.d}
+            stroke={laneColorVar(p.color)}
+            className={isWip ? 'wip' : undefined}
+          />
         ))}
-        {node.isHead && (
+        {isWip ? (
           <circle
-            className="head"
+            className="wip"
             cx={node.cx}
             cy={node.cy}
-            r={node.r + 3}
+            r={node.r - 2}
             stroke={color}
           />
+        ) : node.isMerge ? (
+          <circle
+            className="merge"
+            cx={node.cx}
+            cy={node.cy}
+            r={node.r}
+            fill={color}
+          />
+        ) : (
+          <g className="avatar">
+            {node.isHead && (
+              <circle
+                className="head"
+                cx={node.cx}
+                cy={node.cy}
+                r={node.r + 3}
+                stroke={color}
+              />
+            )}
+            <circle cx={node.cx} cy={node.cy} r={node.r} fill={color} />
+            <text x={node.cx} y={node.cy} dy="0.35em" textAnchor="middle">
+              {getInitials(commit.authorName)}
+            </text>
+          </g>
         )}
-        <circle
-          className={node.isMerge ? 'merge' : 'commit'}
-          cx={node.cx}
-          cy={node.cy}
-          r={node.r}
-          stroke={color}
-          fill={node.isMerge ? 'var(--background-color)' : color}
-        />
       </svg>
+    )
+  }
+
+  private renderBadge(badge: IGraphRefBadge, color: string) {
+    return (
+      <span
+        key={`${badge.kind}:${badge.name}`}
+        className={`arbor-graph-ref ${badge.kind}${
+          badge.current ? ' current' : ''
+        }`}
+        style={{ '--badge-color': color } as React.CSSProperties}
+      >
+        <Octicon symbol={BadgeIcons[badge.kind]} />
+        <span className="name">{badge.name}</span>
+        {badge.local && badge.remotes.length > 0 && (
+          <Octicon className="remote-icon" symbol={octicons.globe} />
+        )}
+      </span>
     )
   }
 
@@ -399,34 +493,58 @@ export class ArborGraphView extends React.Component<
       return null
     }
 
-    const matches = doesCommitMatchFilter(commit, this.state.filter)
+    const isWip = commit.sha === WorkInProgressSha
+    const color = laneColorVar(row.color)
+    const badges = groupRefs(commit.refs, this.state.currentBranch)
+    const matches = isWip || doesCommitMatchFilter(commit, this.state.filter)
+    const className = [
+      'arbor-graph-row',
+      matches ? '' : 'dimmed',
+      isWip ? 'wip' : '',
+      index === this.state.selected ? 'selected' : '',
+    ].join(' ')
+
     return (
       <div
-        className={`arbor-graph-row${matches ? '' : ' dimmed'}`}
+        className={className}
         data-sha={commit.sha}
+        style={{ '--row-color': color } as React.CSSProperties}
       >
-        {this.renderGraphCell(row, commit)}
-        <span className="arbor-graph-refs">
-          {commit.refs.map(r => (
-            <span
-              key={`${r.type}:${r.name}`}
-              className={`arbor-graph-ref ${r.type}${
-                r.name === this.state.currentBranch && r.type === 'local'
-                  ? ' current'
-                  : ''
-              }`}
-            >
-              <Octicon symbol={RefIcons[r.type]} />
-              {r.name}
+        <span className="arbor-graph-col refs">
+          {badges.slice(0, MaxBadges).map(b => this.renderBadge(b, color))}
+          {badges.length > MaxBadges && (
+            <span className="arbor-graph-ref more">
+              +{badges.length - MaxBadges}
             </span>
-          ))}
+          )}
         </span>
-        <span className="arbor-graph-summary">{commit.summary}</span>
-        <span className="arbor-graph-author">{commit.authorName}</span>
-        <span className="arbor-graph-date">
-          <RelativeTime date={new Date(commit.authorDate)} />
+        <span className="arbor-graph-col graph">
+          {this.renderGraphCell(row, commit)}
         </span>
-        <span className="arbor-graph-sha">{commit.shortSha}</span>
+        <span className="arbor-graph-col message">{commit.summary}</span>
+        <span className="arbor-graph-col author">{commit.authorName}</span>
+        <span className="arbor-graph-col date">
+          {isWip ? null : <RelativeTime date={new Date(commit.authorDate)} />}
+        </span>
+        <span className="arbor-graph-col sha">{commit.shortSha}</span>
+      </div>
+    )
+  }
+
+  private renderHeader() {
+    return (
+      <div className="arbor-graph-header" aria-hidden={true}>
+        <span className="arbor-graph-col refs">Branch / Tag</span>
+        <span
+          className="arbor-graph-col graph"
+          style={{ width: graphSvgWidth(this.state.maxWidth) }}
+        >
+          Graph
+        </span>
+        <span className="arbor-graph-col message">Commit message</span>
+        <span className="arbor-graph-col author">Author</span>
+        <span className="arbor-graph-col date">Date</span>
+        <span className="arbor-graph-col sha">SHA</span>
       </div>
     )
   }
@@ -440,6 +558,17 @@ export class ArborGraphView extends React.Component<
 
   private renderDetails() {
     const commit = this.state.commits[this.state.selected]
+    if (commit?.sha === WorkInProgressSha) {
+      return (
+        <aside className="arbor-graph-details" aria-label="Commit details">
+          <h3 className="arbor-graph-details-title">Uncommitted changes</h3>
+          <div>{commit.summary.replace('// WIP: ', '')}</div>
+          <Button onClick={this.props.onClose}>
+            {__DARWIN__ ? 'Show Changes' : 'Show changes'}
+          </Button>
+        </aside>
+      )
+    }
     if (commit === undefined) {
       return (
         <aside className="arbor-graph-details">
@@ -468,15 +597,12 @@ export class ArborGraphView extends React.Component<
         </div>
         {commit.refs.length > 0 && (
           <div className="arbor-graph-details-refs">
-            {commit.refs.map(r => (
-              <span
-                key={`${r.type}:${r.name}`}
-                className={`arbor-graph-ref ${r.type}`}
-              >
-                <Octicon symbol={RefIcons[r.type]} />
-                {r.name}
-              </span>
-            ))}
+            {groupRefs(commit.refs, this.state.currentBranch).map(b =>
+              this.renderBadge(
+                b,
+                laneColorVar(this.state.rows[this.state.selected]?.color ?? 0)
+              )
+            )}
           </div>
         )}
         <pre className="arbor-graph-details-message">
@@ -526,6 +652,7 @@ export class ArborGraphView extends React.Component<
         {error !== null && <div className="arbor-graph-error">{error}</div>}
         <div className="arbor-graph-body">
           <div className="arbor-graph-list">
+            {this.renderHeader()}
             {rows.length === 0 ? (
               <div className="arbor-graph-empty">
                 {loading ? 'Loading history…' : 'No commits yet.'}
