@@ -21,7 +21,6 @@ export function ArborDialogHost(props: IArborDialogHostProps) {
       return (
         <CompareBranchesDialog
           repository={dialog.repository}
-          dispatcher={dispatcher}
           base={dialog.base}
           head={dialog.head}
           onDismissed={onDismissed}

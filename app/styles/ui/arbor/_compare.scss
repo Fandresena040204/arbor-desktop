@@ -1,1 +1,189 @@
-// Arbor: styles of the compare UI.
+// Arbor: styles of the compare branches dialog.
+
+dialog#arbor-compare-branches {
+  width: 900px;
+  max-width: calc(100vw - 40px);
+
+  .dialog-content {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing);
+    min-width: 0;
+  }
+
+  .arbor-compare-pickers {
+    display: flex;
+    align-items: flex-end;
+    gap: var(--spacing);
+
+    .arbor-compare-base,
+    .arbor-compare-head {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .arbor-compare-swap {
+      flex-shrink: 0;
+    }
+  }
+
+  .arbor-compare-summary {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing);
+    color: var(--text-secondary-color);
+
+    .arbor-compare-description {
+      color: var(--text-color);
+      font-weight: var(--font-weight-semibold);
+    }
+
+    .arbor-compare-badge {
+      padding: 0 var(--spacing-half);
+      border: var(--base-border);
+      border-radius: var(--border-radius);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .added {
+      color: var(--color-new);
+    }
+
+    .deleted {
+      color: var(--color-deleted);
+    }
+  }
+
+  .arbor-compare-tabs {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    border: var(--base-border);
+    border-radius: var(--border-radius);
+  }
+
+  .arbor-compare-commits {
+    max-height: 50vh;
+    overflow: auto;
+    padding: var(--spacing);
+  }
+
+  .arbor-compare-section-title {
+    font-size: var(--font-size);
+    margin: var(--spacing-half) 0;
+  }
+
+  .arbor-compare-commit-list {
+    list-style: none;
+    margin: 0 0 var(--spacing);
+    padding: 0;
+  }
+
+  .arbor-compare-commit {
+    display: flex;
+    gap: var(--spacing);
+    padding: var(--spacing-half) 0;
+    border-bottom: var(--base-border);
+    min-width: 0;
+
+    .sha {
+      font-family: var(--font-family-monospace);
+      color: var(--text-secondary-color);
+      flex-shrink: 0;
+    }
+
+    .summary {
+      flex: 1;
+      min-width: 0;
+      @include ellipsis;
+    }
+
+    .author,
+    .date {
+      flex-shrink: 0;
+      color: var(--text-secondary-color);
+      font-size: var(--font-size-sm);
+    }
+  }
+
+  .arbor-compare-empty,
+  .arbor-compare-truncated {
+    padding: var(--spacing);
+    color: var(--text-secondary-color);
+  }
+
+  .arbor-compare-files {
+    display: flex;
+    height: 50vh;
+    min-height: 0;
+  }
+
+  .arbor-compare-file-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    width: 280px;
+    flex-shrink: 0;
+    overflow: auto;
+    border-right: var(--base-border);
+  }
+
+  .arbor-compare-file {
+    display: flex;
+    gap: var(--spacing-half);
+    align-items: center;
+    width: 100%;
+    padding: var(--spacing-half) var(--spacing);
+    border: none;
+    background: none;
+    color: var(--text-color);
+    text-align: left;
+    cursor: pointer;
+
+    &.selected {
+      background: var(--box-selected-background-color);
+    }
+
+    .status {
+      font-family: var(--font-family-monospace);
+      width: 1.2em;
+      flex-shrink: 0;
+    }
+
+    .path {
+      min-width: 0;
+      @include ellipsis;
+    }
+  }
+
+  .arbor-compare-diff {
+    flex: 1;
+    min-width: 0;
+    overflow: auto;
+  }
+
+  .arbor-compare-diff-text {
+    margin: 0;
+    font-family: var(--font-family-monospace);
+    font-size: var(--font-size-sm);
+
+    .line {
+      padding: 0 var(--spacing);
+      white-space: pre;
+    }
+
+    .add {
+      background: var(--diff-add-background-color);
+    }
+
+    .delete {
+      background: var(--diff-delete-background-color);
+    }
+
+    .hunk {
+      color: var(--text-secondary-color);
+      background: var(--diff-hunk-background-color);
+    }
+  }
+}
