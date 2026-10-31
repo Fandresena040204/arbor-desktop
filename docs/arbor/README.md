@@ -53,16 +53,13 @@ Not changed yet: the `x-github-client` and `x-github-desktop-auth` URL protocols
 - [x] Integrated terminal: View > Toggle terminal (Ctrl+`), interactive shell in the repository folder.
   The shells run in the main process (node-pty needs worker threads, which
   renderers don't allow) and the panel drives them over IPC.
-- [ ] Visual branch comparison: ahead/behind, commits and diff between any two branches.
-  Git layer done (`lib/arbor/git/compare.ts`), UI to do.
-- [ ] Full interactive rebase: editor with pick / reword / edit / squash / fixup /
-  drop and drag-and-drop reordering. Git layer done
-  (`lib/arbor/git/interactive-rebase.ts`), UI to do.
+- [x] Visual branch comparison: Branch > Compare branches… (ahead/behind, commits on each side, changed files and diff).
+- [x] Full interactive rebase: Branch > Interactive rebase… (pick/reword/edit/squash/fixup/drop, drag-and-drop reordering).
 
 ### Large
-- [ ] Interactive Git graph (GitKraken style): branches, merges, create a branch
-  or run an action from any commit. Engine done (`lib/arbor/graph/`), UI to do.
-- [ ] Built-in 3-way conflict resolution tool. Engine done (`lib/arbor/conflicts/`), UI to do.
+- [x] Interactive Git graph (GitKraken/GitLens style), merged into the Changes tab:
+  WIP row, ref badges, avatars, branches panel, context menu actions.
+- [x] Built-in 3-way merge tool: Resolve in merge tool… from the conflicted file menu.
 - [ ] GitLab support (gitlab.com and self-hosted): PAT/OAuth login for any URL,
   merge requests, CI pipeline status, issues. This requires a "hosting provider"
   abstraction around `app/src/lib/api.ts`.
