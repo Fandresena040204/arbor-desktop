@@ -107,12 +107,82 @@ def write_channel(name, top, bottom):
     return big
 
 
+def glyph_svg():
+    """The tree alone, in white, as a layer for macOS Icon Composer (.icon)."""
+    paths = []
+    for pts in [TRUNK] + BRANCHES:
+        d = 'M' + ' L'.join(f'{x} {y}' for x, y in pts)
+        paths.append(
+            f'<path d="{d}" stroke="white" stroke-width="{STROKE}" '
+            'stroke-linecap="round" stroke-linejoin="round"/>'
+        )
+    nodes = [
+        f'<circle cx="{x}" cy="{y}" r="{NODE_R + NODE_STROKE / 2}" fill="white"/>'
+        for (x, y), _ in NODES
+    ]
+    return (
+        f'<svg width="{S}" height="{S}" viewBox="0 0 {S} {S}" fill="none" '
+        'xmlns="http://www.w3.org/2000/svg">\n  '
+        + '\n  '.join(paths + nodes)
+        + '\n</svg>\n'
+    )
+
+
+def write_mac_icon(name, top, bottom):
+    """Point the macOS 26 .icon bundle at the Arbor glyph and colours."""
+    import json
+
+    bundle = ROOT / 'app' / 'static' / 'logos' / name / 'icon-logo.icon'
+    (bundle / 'Assets' / '1 – Layer 3.svg').write_text(glyph_svg(), encoding='utf-8')
+    config = json.loads((bundle / 'icon.json').read_text(encoding='utf-8'))
+    srgb = lambda c: 'srgb:' + ','.join(f'{v / 255:.5f}' for v in c) + ',1.00000'
+    config['fill']['linear-gradient'] = [srgb(bottom), srgb(top)]
+    for group in config['groups']:
+        for layer in group['layers']:
+            if layer.get('name') == 'octocat':
+                layer['name'] = 'arbor'
+    (bundle / 'icon.json').write_text(json.dumps(config, indent=2) + '\n', encoding='utf-8')
+
+
+def write_about_logos(prod):
+    """The 64pt @2x logos of the About dialog (macOS and Windows variants)."""
+    common = ROOT / 'app' / 'static' / 'common'
+    small = prod.resize((128, 128), Image.LANCZOS)
+    small.save(common / 'logo-64x64@2x.png')
+    small.save(common / 'windows-logo-64x64@2x.png')
+
+
+def write_installer_splash(prod):
+    """The Windows installer splash: the logo fading in on a dark background."""
+    size = 400
+    logo = prod.resize((200, 200), Image.LANCZOS)
+    frames = []
+    for alpha in (0.25, 0.5, 0.75, 1.0):
+        frame = Image.new('RGBA', (size, size), (36, 41, 46, 255))
+        faded = logo.copy()
+        faded.putalpha(faded.getchannel('A').point(lambda a: int(a * alpha)))
+        frame.alpha_composite(faded, (100, 100))
+        frames.append(frame.convert('P', palette=Image.ADAPTIVE))
+    frames[0].save(
+        ROOT / 'app' / 'static' / 'logos' / 'win32-installer-splash.gif',
+        save_all=True,
+        append_images=frames[1:],
+        duration=[200, 200, 200, 2000],
+        loop=0,
+    )
+
+
 def main():
     brand = ROOT / 'branding'
     (brand / 'arbor-logo.svg').write_text(svg(BG_TOP, BG_BOTTOM), encoding='utf-8')
     (brand / 'arbor-logo-dev.svg').write_text(svg(DEV_TOP, DEV_BOTTOM), encoding='utf-8')
+    (brand / 'arbor-glyph.svg').write_text(glyph_svg(), encoding='utf-8')
     prod = write_channel('prod', BG_TOP, BG_BOTTOM)
     write_channel('dev', DEV_TOP, DEV_BOTTOM)
+    write_mac_icon('prod', BG_TOP, BG_BOTTOM)
+    write_mac_icon('dev', DEV_TOP, DEV_BOTTOM)
+    write_about_logos(prod)
+    write_installer_splash(prod)
     prod.resize((512, 512), Image.LANCZOS).save(ROOT / 'app' / 'static' / 'linux' / 'icon-logo.png')
     prod.save(brand / 'arbor-logo-1024.png')
     print('Arbor logo assets generated.')

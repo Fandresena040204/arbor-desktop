@@ -1,56 +1,56 @@
 {
-  "fill" : {
-    "linear-gradient" : [
-      "display-p3:0.56772,0.25840,0.76000,1.00000",
-      "srgb:0.35121,0.06360,0.53000,1.00000"
+  "fill": {
+    "linear-gradient": [
+      "srgb:0.13333,0.47059,0.36078,1.00000",
+      "srgb:0.07059,0.22745,0.21176,1.00000"
     ],
-    "orientation" : {
-      "start" : {
-        "x" : 0.5,
-        "y" : 0
+    "orientation": {
+      "start": {
+        "x": 0.5,
+        "y": 0
       },
-      "stop" : {
-        "x" : 0.5,
-        "y" : 0.7
+      "stop": {
+        "x": 0.5,
+        "y": 0.7
       }
     }
   },
-  "groups" : [
+  "groups": [
     {
-      "layers" : [
+      "layers": [
         {
-          "fill-specializations" : [
+          "fill-specializations": [
             {
-              "value" : {
-                "solid" : "srgb:1.00000,1.00000,1.00000,1.00000"
+              "value": {
+                "solid": "srgb:1.00000,1.00000,1.00000,1.00000"
               }
             },
             {
-              "appearance" : "dark",
-              "value" : {
-                "solid" : "srgb:1.00000,1.00000,1.00000,1.00000"
+              "appearance": "dark",
+              "value": {
+                "solid": "srgb:1.00000,1.00000,1.00000,1.00000"
               }
             }
           ],
-          "image-name" : "1 – Layer 3.svg",
-          "name" : "octocat"
+          "image-name": "1 \u2013 Layer 3.svg",
+          "name": "arbor"
         }
       ],
-      "name" : "foreground",
-      "shadow" : {
-        "kind" : "neutral",
-        "opacity" : 0.5
+      "name": "foreground",
+      "shadow": {
+        "kind": "neutral",
+        "opacity": 0.5
       },
-      "translucency" : {
-        "enabled" : true,
-        "value" : 0.5
+      "translucency": {
+        "enabled": true,
+        "value": 0.5
       }
     }
   ],
-  "supported-platforms" : {
-    "circles" : [
+  "supported-platforms": {
+    "circles": [
       "watchOS"
     ],
-    "squares" : "shared"
+    "squares": "shared"
   }
 }

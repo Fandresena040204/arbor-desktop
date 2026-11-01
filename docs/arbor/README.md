@@ -33,11 +33,18 @@ that adds GitLab support, including self-hosted instances, and advanced Git tool
 | Area | Change |
 |---|---|
 | Name / identifiers | `productName` Arbor, `bundleID` `dev.arbor.desktop`, Windows id `ArborDesktop`. It installs alongside GitHub Desktop. |
-| Logo | `branding/make-logo.py` generates the icons (`.ico`, `.icns`, `.png`) and the SVG source. |
+| Logo | `branding/make-logo.py` generates every asset from one geometry: app icons (`.ico`, `.icns`, `.png`), the About dialog logos, the Windows installer splash, the macOS 26 `icon-logo.icon` layers and the SVG sources. The title bar uses the monochrome glyph (`app/src/ui/arbor/arbor-logo.tsx`). The welcome flow, About and app menus say Arbor. |
 | Auto-update | Disabled. The official update server would replace Arbor with GitHub Desktop. Set `ARBOR_UPDATES_URL` at build time to enable a custom feed. |
 
 Not changed yet: the `x-github-client` and `x-github-desktop-auth` URL protocols
-(they are needed for GitHub OAuth login) and the macOS `.icon`/`Assets.car` assets.
+(they are needed for GitHub OAuth login).
+
+macOS 26 icon: `Assets.car` is compiled from `icon-logo.icon` by Xcode's
+`actool`, which only runs on macOS. The stale GitHub one was removed, so macOS
+uses the Arbor `.icns`. To get the Liquid Glass icon back, on macOS 26 run
+`xcrun actool app/static/logos/prod/icon-logo.icon --compile app/static/logos/prod --app-icon icon-logo --platform macosx --minimum-deployment-target 26.0 --output-partial-info-plist /tmp/icon.plist`
+(same for `dev`), and add `CFBundleIconName` = `icon-logo` back to
+`script/info.plist`.
 
 ## Roadmap (from small to large)
 

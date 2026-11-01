@@ -28,18 +28,19 @@ export class Start extends React.Component<IStartProps, {}> {
     return (
       <section
         id="start"
-        aria-label="Welcome to GitHub Desktop"
+        // Arbor: the welcome flow introduces Arbor.
+        aria-label="Welcome to Arbor"
         aria-describedby="start-description"
       >
         <div className="start-content">
           <h1 className="welcome-title">
-            Welcome to <span>GitHub Desktop</span>
+            Welcome to <span>Arbor</span>
           </h1>
           {!this.props.loadingBrowserAuth ? (
             <>
               <p id="start-description" className="welcome-text">
-                GitHub Desktop is a seamless way to contribute to projects on
-                GitHub and GitHub Enterprise. Sign in below to get started with
+                Arbor is a Git client for GitHub, GitHub Enterprise and GitLab
+                (gitlab.com or self-hosted). Sign in below to get started with
                 your existing projects.
               </p>
             </>

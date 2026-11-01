@@ -65,7 +65,6 @@ import {
 import { updateLicenseDump } from './licenses/update-license-dump'
 import { verifyInjectedSassVariables } from './validate-sass/validate-all'
 import { join } from 'path'
-import assert from 'assert'
 import { copyCopilotDependency } from './copilot'
 
 const isPublishableBuild = isPublishable()
@@ -191,11 +190,11 @@ async function packageApp() {
   }
 
   const iconPath = getIconDirectory()
+  // Arbor: Assets.car (the compiled macOS 26 icon) can only be produced on
+  // macOS with actool from icon-logo.icon, see docs/arbor/README.md. Without
+  // it, macOS uses the ICNS icon.
   const assetsCarPath = join(iconPath, 'Assets.car')
-  assert(
-    existsSync(assetsCarPath),
-    `Unable to find Assets.car at ${assetsCarPath}`
-  )
+  const extraResource = existsSync(assetsCarPath) ? [assetsCarPath] : []
 
   return packager({
     name: getExecutableName(),
@@ -209,7 +208,7 @@ async function packageApp() {
       iconPath,
       process.platform === 'darwin' ? 'icon-logo-legacy.icns' : 'icon-logo'
     ),
-    extraResource: [assetsCarPath],
+    extraResource,
     dir: outRoot,
     overwrite: true,
     tmpdir: false,
