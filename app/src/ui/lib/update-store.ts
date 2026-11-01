@@ -238,7 +238,11 @@ class UpdateStore {
       return __UPDATES_URL__
     }
 
-    if (skipGuidCheck) {
+    // Arbor: staggered releases and the arm64 rewrite are features of GitHub's
+    // update server; other feeds (update.electronjs.org) are used as is.
+    const isGitHubCentral = url.hostname === 'central.github.com'
+
+    if (skipGuidCheck && isGitHubCentral) {
       // This will effectively disable the staggered releases system and attempt
       // to retrieve the latest available deployment.
       url.searchParams.set('skipGuidCheck', '1')
@@ -247,6 +251,7 @@ class UpdateStore {
     // If the app is running under arm64 to x64 translation, we need to tweak the
     // update URL here to point at the arm64 binary.
     if (
+      isGitHubCentral &&
       enableUpdateFromEmulatedX64ToARM64() &&
       (await isRunningUnderARM64Translation()) === true
     ) {

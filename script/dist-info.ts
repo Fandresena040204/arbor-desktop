@@ -3,6 +3,7 @@ import * as Fs from 'fs'
 
 import { getProductName, getVersion } from '../app/package-info'
 import { join } from 'path'
+import { ArborReleasesRepository } from '../app/src/lib/arbor/arbor-releases'
 
 const productName = getProductName()
 const version = getVersion()
@@ -135,16 +136,28 @@ export function getDistArchitecture(): 'arm64' | 'x64' {
   return 'x64'
 }
 
+/**
+ * Arbor: the update feed. Releases published to Arbor's GitHub repository are
+ * served to Squirrel by update.electronjs.org (Electron's free update service
+ * for open source apps), never GitHub Desktop's server, which would replace
+ * Arbor with GitHub Desktop. Development builds don't update.
+ * ARBOR_UPDATES_URL overrides it ('' turns updates off).
+ */
 export function getUpdatesURL() {
-  // Arbor does not use GitHub's update server (it would replace Arbor with the
-  // official GitHub Desktop). Auto-update is disabled unless a feed is provided.
-  return process.env.ARBOR_UPDATES_URL ?? ''
+  if (process.env.ARBOR_UPDATES_URL !== undefined) {
+    return process.env.ARBOR_UPDATES_URL
+  }
+  if (!isPublishable()) {
+    return ''
+  }
+  const platform = `${process.platform}-${getDistArchitecture()}`
+  return `https://update.electronjs.org/${ArborReleasesRepository}/${platform}/${version}`
 }
 
 export function shouldMakeDelta() {
-  // Only production and beta channels include deltas. Test releases aren't
-  // necessarily sequential so deltas wouldn't make sense.
-  return ['production', 'beta'].includes(getChannel())
+  // Arbor: no delta packages; they need the previous releases from an update
+  // server that serves them to electron-winstaller, which ours doesn't.
+  return false
 }
 
 /**

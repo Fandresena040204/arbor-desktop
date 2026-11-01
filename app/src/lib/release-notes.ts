@@ -1,4 +1,10 @@
 import { readFile } from 'fs/promises'
+// Arbor: Arbor's releases.
+import {
+  getArborReleasesApiUrl,
+  IGitHubRelease,
+  toReleaseMetadata,
+} from './arbor/arbor-releases'
 import * as Path from 'path'
 import * as semver from 'semver'
 import {
@@ -92,24 +98,17 @@ export function getReleaseSummary(
 export async function getChangeLog(
   limit?: number
 ): Promise<ReadonlyArray<ReleaseMetadata>> {
-  const changelogURL = new URL(
-    'https://central.github.com/deployments/desktop/desktop/changelog.json'
-  )
-
-  if (__RELEASE_CHANNEL__ === 'beta' || __RELEASE_CHANNEL__ === 'test') {
-    changelogURL.searchParams.set('env', __RELEASE_CHANNEL__)
-  }
-
-  if (limit !== undefined) {
-    changelogURL.searchParams.set('limit', limit.toString())
-  }
-
-  const response = await fetch(changelogURL.toString(), {
-    headers: { 'user-agent': getUserAgent() },
+  // Arbor: release notes come from Arbor's GitHub releases, not from GitHub
+  // Desktop's changelog (whose versions have nothing to do with Arbor's).
+  const response = await fetch(getArborReleasesApiUrl(limit), {
+    headers: {
+      'user-agent': getUserAgent(),
+      Accept: 'application/vnd.github+json',
+    },
   })
   if (response.ok) {
-    const releases: ReadonlyArray<ReleaseMetadata> = await response.json()
-    return releases
+    const releases: ReadonlyArray<IGitHubRelease> = await response.json()
+    return toReleaseMetadata(releases, __RELEASE_CHANNEL__ !== 'production')
   } else {
     return []
   }

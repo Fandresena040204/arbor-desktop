@@ -22,7 +22,7 @@ import { isGitHubActions } from './build-platforms'
 import { existsSync, rmSync, writeFileSync } from 'fs'
 import { getVersion } from '../app/package-info'
 import { computeBundleHashSync } from '../app/src/lib/compute-bundle-hash'
-import { rename } from 'fs/promises'
+import { readFile, rename, writeFile } from 'fs/promises'
 import { join } from 'path'
 import { assertNonNullable } from '../app/src/lib/fatal-error'
 
@@ -89,7 +89,9 @@ function packageWindows() {
     process.exit(1)
   }
 
-  const iconUrl = 'https://desktop.githubusercontent.com/app-icon.ico'
+  // Arbor: the icon shown in Windows' installed apps list.
+  const iconUrl =
+    'https://raw.githubusercontent.com/Fandresena040204/arbor-desktop/development/app/static/logos/prod/icon-logo.ico'
 
   const nugetPkgName = getWindowsIdentifierName()
   const options: electronInstaller.Options = {
@@ -114,7 +116,12 @@ function packageWindows() {
     options.remoteReleases = url.toString()
   }
 
-  if (isGitHubActions() && isPublishable()) {
+  // Arbor: GitHub's Azure code signing only exists for desktop/desktop's CI.
+  if (
+    isGitHubActions() &&
+    isPublishable() &&
+    process.env.GITHUB_REPOSITORY === 'desktop/desktop'
+  ) {
     assertNonNullable(process.env.RUNNER_TEMP, 'Missing RUNNER_TEMP env var')
 
     const acsPath = join(process.env.RUNNER_TEMP, 'acs')
@@ -153,6 +160,19 @@ function packageWindows() {
         console.log(`Renaming ${from} to ${to}`)
         await rename(from, to)
       }
+
+      // Arbor: update.electronjs.org serves the packages the RELEASES file
+      // names straight from the GitHub release, so it must name the renamed
+      // packages (GitHub's update server rewrote it instead).
+      const releasesPath = join(outputDir, 'RELEASES')
+      const releases = await readFile(releasesPath, 'utf8')
+      await writeFile(
+        releasesPath,
+        releases.replace(
+          new RegExp(`${prefix}-(full|delta)\\.nupkg`, 'g'),
+          `${prefix}-${arch}-$1.nupkg`
+        )
+      )
     })
     .catch(e => {
       console.error(`Error packaging: ${e}`)

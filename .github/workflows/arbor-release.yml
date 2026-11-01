@@ -1,0 +1,84 @@
+name: Arbor - release
+
+# Push a tag `vX.Y.Z` matching app/package.json's version to build Arbor for
+# Windows and publish it as a GitHub release. update.electronjs.org then
+# serves it to the installed Arbor apps as an update (Squirrel.Windows reads
+# the RELEASES file and the .nupkg package attached to the release).
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing tag to (re)build and publish, e.g. v1.0.0
+        required: true
+
+permissions:
+  contents: write
+
+env:
+  NODE_VERSION: 24.22.1
+
+jobs:
+  windows:
+    name: Windows x64
+    runs-on: windows-latest
+    env:
+      TAG: ${{ inputs.tag || github.ref_name }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+          submodules: recursive
+
+      - name: Check the tag matches the app version
+        shell: bash
+        run: |
+          version=$(node -p "require('./app/package.json').version")
+          if [ "v$version" != "$TAG" ]; then
+            echo "::error::Tag $TAG doesn't match app/package.json version $version"
+            exit 1
+          fi
+
+      - uses: ./.github/actions/setup-ci-environment
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          arch: x64
+
+      - name: Build production app
+        run: yarn build:prod
+        env:
+          RELEASE_CHANNEL: production
+          # Optional: your own GitHub OAuth app for "Sign in to GitHub.com"
+          # (otherwise GitHub Desktop's development app is used).
+          DESKTOP_OAUTH_CLIENT_ID: ${{ secrets.DESKTOP_OAUTH_CLIENT_ID }}
+          DESKTOP_OAUTH_CLIENT_SECRET:
+            ${{ secrets.DESKTOP_OAUTH_CLIENT_SECRET }}
+
+      - name: Package installers and update packages
+        run: yarn package
+        env:
+          RELEASE_CHANNEL: production
+          npm_config_arch: x64
+
+      - name: Publish the GitHub release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          shopt -s nullglob
+          files=(dist/*.exe dist/*.msi dist/*.nupkg dist/RELEASES)
+          if [ ${#files[@]} -lt 4 ]; then
+            echo "::error::Missing release files in dist: ${files[*]}"
+            ls -la dist || true
+            exit 1
+          fi
+
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            gh release upload "$TAG" "${files[@]}" --clobber
+          else
+            gh release create "$TAG" "${files[@]}" \
+              --title "Arbor ${TAG#v}" \
+              --generate-notes
+          fi

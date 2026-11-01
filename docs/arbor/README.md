@@ -34,7 +34,7 @@ that adds GitLab support, including self-hosted instances, and advanced Git tool
 |---|---|
 | Name / identifiers | `productName` Arbor, `bundleID` `dev.arbor.desktop`, Windows id `ArborDesktop`. It installs alongside GitHub Desktop. |
 | Logo | `branding/make-logo.py` generates every asset from one geometry: app icons (`.ico`, `.icns`, `.png`), the About dialog logos, the Windows installer splash, the macOS 26 `icon-logo.icon` layers and the SVG sources. The title bar uses the monochrome glyph (`app/src/ui/arbor/arbor-logo.tsx`). The welcome flow, About and app menus say Arbor. |
-| Auto-update | Disabled. The official update server would replace Arbor with GitHub Desktop. Set `ARBOR_UPDATES_URL` at build time to enable a custom feed. |
+| Auto-update | From Arbor's GitHub releases through [update.electronjs.org](https://update.electronjs.org) (never GitHub Desktop's server, which would replace Arbor). Development builds don't update; `ARBOR_UPDATES_URL` overrides the feed (`''` turns it off). Release notes come from the GitHub releases. |
 | Windows identity | App User Model ID `com.squirrel.ArborDesktop.ArborDesktop` (also in dev builds, which used GitHub Desktop's and were grouped with it in the taskbar, with its icon); notifications use Arbor's shortcuts and toast activator CLSID. |
 | Usage stats | Never sent: the app gives the stats store a no-op sender (GitHub's endpoints are GitHub Desktop's). The welcome flow and Preferences say so. |
 | About | Without an update feed it says automatic updates are off and links to Arbor's releases, instead of an update error. |
@@ -81,3 +81,27 @@ uses the Arbor `.icns`. To get the Liquid Glass icon back, on macOS 26 run
   GitLab token given to Git so HTTPS push/pull just work, merge request
   reviews (details, approve / revoke approval, comments) and pipeline
   statuses on the graph's branch and tag tips.
+
+## Publishing a release (updates)
+
+Arbor has its own version numbers, starting at 1.0.0 (`app/package.json`).
+When syncing with upstream, keep Arbor's version rather than taking
+upstream's.
+
+1. Bump `version` in `app/package.json`, commit and push.
+2. Tag and push: `git tag v1.0.1 && git push origin v1.0.1`.
+3. The `Arbor - release` workflow builds the Windows installers
+   (`ArborDesktopSetup-x64.exe`/`.msi`) and the update package
+   (`ArborDesktop-<version>-x64-full.nupkg` + `RELEASES`), and publishes them
+   as a GitHub release.
+4. Installed Arbor apps check
+   `https://update.electronjs.org/Fandresena040204/arbor-desktop/win32-x64/<their version>`
+   (at startup and every few hours, or from About), download the update and
+   offer to restart.
+
+In each release description, `- [New] …`, `- [Fixed] …` and `- [Improved] …`
+lines become the notes shown after updating.
+
+Not covered yet: macOS updates need a signed and notarized app (Squirrel.Mac
+refuses unsigned updates), and the Windows installers aren't code signed
+(SmartScreen warns on first install).

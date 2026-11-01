@@ -3,7 +3,7 @@
   "productName": "Arbor",
   "bundleID": "dev.arbor.desktop",
   "companyName": "Arbor contributors",
-  "version": "3.6.10",
+  "version": "1.0.0",
   "main": "./main.js",
   "repository": {
     "type": "git",
