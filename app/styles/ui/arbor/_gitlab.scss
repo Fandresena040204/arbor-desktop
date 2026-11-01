@@ -153,10 +153,21 @@ dialog#arbor-gitlab {
     display: flex;
     flex-direction: column;
     gap: var(--spacing-half);
+    width: 100%;
     padding: var(--spacing-half) var(--spacing);
     border: var(--base-border);
     border-radius: var(--border-radius);
+    background: none;
+    color: var(--text-color);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
     min-width: 0;
+
+    &:hover,
+    &:focus {
+      background: var(--box-selected-background-color);
+    }
   }
 
   .arbor-gitlab-mr-heading {
@@ -305,6 +316,219 @@ dialog#arbor-gitlab {
     .arbor-gitlab-issue-title {
       min-width: 0;
       @include ellipsis;
+    }
+  }
+
+  // Browser (OAuth) sign-in.
+
+  .arbor-gitlab-oauth {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-half);
+    padding-top: var(--spacing);
+    border-top: var(--base-border);
+    min-width: 0;
+  }
+
+  .arbor-gitlab-oauth-explanation {
+    color: var(--text-secondary-color);
+    font-size: var(--font-size-sm);
+    margin: 0;
+  }
+
+  .arbor-gitlab-redirect {
+    display: flex;
+    align-items: flex-end;
+    gap: var(--spacing-half);
+    min-width: 0;
+
+    .arbor-gitlab-redirect-uri {
+      flex: 1;
+      min-width: 0;
+      padding: var(--spacing-half);
+      border: var(--base-border);
+      border-radius: var(--border-radius);
+      background: var(--box-selected-background-color);
+      color: var(--text-color);
+      font-family: var(--font-family-monospace);
+      font-size: var(--font-size-sm);
+      overflow-wrap: anywhere;
+      word-break: break-all;
+    }
+
+    .arbor-gitlab-copy-redirect {
+      flex-shrink: 0;
+    }
+  }
+
+  .arbor-gitlab-application-id input {
+    min-width: 0;
+  }
+
+  .arbor-gitlab-oauth-sign-in {
+    align-self: flex-start;
+  }
+
+  .arbor-gitlab-oauth-waiting {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing);
+    color: var(--text-secondary-color);
+    min-width: 0;
+
+    .arbor-gitlab-oauth-waiting-text {
+      min-width: 0;
+    }
+
+    .arbor-gitlab-oauth-cancel {
+      flex-shrink: 0;
+    }
+  }
+
+  // Merge request review.
+
+  .arbor-gitlab-mr-detail {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing);
+    min-width: 0;
+  }
+
+  .arbor-gitlab-mr-detail-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing);
+    min-width: 0;
+
+    .arbor-gitlab-mr-back {
+      flex-shrink: 0;
+    }
+  }
+
+  .arbor-gitlab-mr-detail-info {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-half);
+    min-width: 0;
+  }
+
+  .arbor-gitlab-mr-detail-heading {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-half);
+    min-width: 0;
+
+    .arbor-gitlab-mr-detail-title {
+      font-size: var(--font-size);
+      margin: 0;
+      min-width: 0;
+      @include ellipsis;
+    }
+  }
+
+  .arbor-gitlab-mr-merge-status {
+    flex-shrink: 0;
+    padding: 1px var(--spacing-half);
+    border: var(--base-border);
+    border-radius: var(--border-radius);
+    color: var(--text-secondary-color);
+    font-size: var(--font-size-sm);
+
+    &.warning {
+      color: var(--color-conflicted);
+    }
+  }
+
+  .arbor-gitlab-mr-conflicts {
+    color: var(--color-conflicted);
+    font-size: var(--font-size-sm);
+    margin: 0;
+  }
+
+  .arbor-gitlab-mr-description {
+    margin: 0;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    min-width: 0;
+  }
+
+  .arbor-gitlab-approvals,
+  .arbor-gitlab-notes {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-half);
+    padding-top: var(--spacing);
+    border-top: var(--base-border);
+    min-width: 0;
+  }
+
+  .arbor-gitlab-approvals-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing);
+    min-width: 0;
+  }
+
+  .arbor-gitlab-note-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-half);
+    margin: 0;
+    padding: 0;
+    min-width: 0;
+  }
+
+  .arbor-gitlab-note {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: var(--spacing-half) var(--spacing);
+    border: var(--base-border);
+    border-radius: var(--border-radius);
+    min-width: 0;
+
+    .arbor-gitlab-note-header {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: var(--spacing);
+      min-width: 0;
+
+      .arbor-gitlab-note-author {
+        font-weight: var(--font-weight-semibold);
+        min-width: 0;
+        @include ellipsis;
+      }
+
+      .arbor-gitlab-note-time {
+        flex-shrink: 0;
+        color: var(--text-secondary-color);
+        font-size: var(--font-size-sm);
+      }
+    }
+
+    .arbor-gitlab-note-body {
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      min-width: 0;
+    }
+  }
+
+  .arbor-gitlab-add-note {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-half);
+    min-width: 0;
+
+    textarea.arbor-gitlab-note-draft {
+      min-width: 0;
+      resize: vertical;
+    }
+
+    .arbor-gitlab-add-note-button {
+      align-self: flex-start;
     }
   }
 }

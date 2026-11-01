@@ -65,5 +65,9 @@ Not changed yet: the `x-github-client` and `x-github-desktop-auth` URL protocols
   path), signs in with a personal access token kept in the OS credential
   store, creates a merge request for the current branch, lists open merge
   requests, shows the branch's latest pipeline and the issues.
-- [ ] GitLab support, next: OAuth sign-in, pipeline status in the toolbar and
-  graph, merge request reviews, using GitLab credentials for push/pull.
+- [x] GitLab support, part 2: sign in with the browser (OAuth 2 + PKCE, with an
+  application registered on the instance and the redirect URI
+  `http://127.0.0.1:47901/callback`; tokens refreshed automatically), the
+  GitLab token given to Git so HTTPS push/pull just work, merge request
+  reviews (details, approve / revoke approval, comments) and pipeline
+  statuses on the graph's branch and tag tips.

@@ -16,6 +16,8 @@ import * as Fs from 'fs'
 import { AppWindow } from './app-window'
 // Arbor: integrated terminal shells run in the main process.
 import { registerArborTerminalHost } from './arbor/terminal-host'
+// Arbor: GitLab OAuth sign-in runs in the main process.
+import { registerArborGitLabOAuthHost } from './arbor/gitlab-oauth-host'
 import { buildDefaultMenu, getAllMenuItems } from './menu'
 import { shellNeedsPatching, updateEnvironmentForProcess } from '../lib/shell'
 import { parseAppURL } from '../lib/parse-app-url'
@@ -378,8 +380,9 @@ app.on('ready', () => {
     })
   )
 
-  // Arbor: IPC handlers of the integrated terminal.
+  // Arbor: IPC handlers of the integrated terminal and of GitLab OAuth.
   registerArborTerminalHost()
+  registerArborGitLabOAuthHost()
 
   ipcMain.on('update-accounts', (event, accounts) => {
     if (event.sender !== mainWindow?.webContents) {

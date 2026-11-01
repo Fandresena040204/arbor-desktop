@@ -468,3 +468,26 @@
     width: 240px;
   }
 }
+
+// GitLab pipeline status of branch and tag tips.
+.arbor-graph-pipeline {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: var(--spacing-half);
+  border-radius: 50%;
+  vertical-align: middle;
+  background: var(--text-secondary-color);
+
+  &.success {
+    background: var(--arbor-graph-color-2);
+  }
+
+  &.failed {
+    background: var(--arbor-graph-color-1);
+  }
+
+  &.running {
+    background: var(--arbor-graph-color-3);
+  }
+}

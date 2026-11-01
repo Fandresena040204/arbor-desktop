@@ -9,6 +9,8 @@ import { LinkButton } from '../../lib/link-button'
 import { TabBar } from '../../tab-bar'
 import { TextArea } from '../../lib/text-area'
 import { TextBox } from '../../lib/text-box'
+import { RelativeTime } from '../../relative-time'
+import { writeClipboardText } from '../../main-process-proxy'
 import { getRemotes } from '../../../lib/git/remote'
 import { getSymbolicRef } from '../../../lib/git/refs'
 import { IRemote } from '../../../models/remote'
@@ -20,17 +22,27 @@ import {
 import {
   GitLabAPI,
   GitLabAPIError,
+  IGitLabApprovals,
   IGitLabIssue,
   IGitLabMergeRequest,
+  IGitLabNote,
   IGitLabPipeline,
   IGitLabProject,
 } from '../../../lib/arbor/gitlab/gitlab-api'
+import {
+  signInWithGitLabOAuth,
+  GitLabOAuthRedirectUri,
+} from '../../../lib/arbor/gitlab/gitlab-oauth'
 import { IGitLabRemote } from '../../../lib/arbor/gitlab/gitlab-remote'
 import {
   branchOfSymbolicRef,
   chooseGitLabRemote,
   defaultMergeRequestTitle,
+  describeGitLabApprovals,
+  describeGitLabMergeStatus,
   describeGitLabPipeline,
+  filterOutSystemNotes,
+  IGitLabMergeRequestDetails,
   shortSha,
 } from './gitlab-ui-utils'
 
@@ -70,6 +82,12 @@ interface IGitLabDialogState {
   readonly signInInstance: string
   readonly signInToken: string
   readonly signingIn: boolean
+  // The browser (OAuth) sign-in.
+  readonly oauthApplicationId: string
+  /** Waiting for the user to authorize Arbor in the browser. */
+  readonly oauthWaiting: boolean
+  /** Whether the redirect URI was just copied, for the button label. */
+  readonly redirectUriCopied: boolean
   /** The signed-in account, null until `saveAccount` succeeded. */
   readonly account: IGitLabAccount | null
   // The data of the signed-in project.
@@ -89,6 +107,25 @@ interface IGitLabDialogState {
   readonly mrDraft: boolean
   readonly mrRemoveSourceBranch: boolean
   readonly creatingMergeRequest: boolean
+  // The review of an open merge request.
+  /** The iid of the merge request whose review is open, null when closed. */
+  readonly openMergeRequestIid: number | null
+  readonly mergeRequestDetail: IGitLabMergeRequestDetails | null
+  readonly mergeRequestDetailLoading: boolean
+  readonly mergeRequestDetailError: string | null
+  // The approvals of the reviewed merge request.
+  readonly approvals: IGitLabApprovals | null
+  readonly approvalsLoading: boolean
+  /** Approving or revoking the approval of the current user. */
+  readonly approving: boolean
+  readonly approvalsError: string | null
+  // The comments of the reviewed merge request.
+  readonly notes: ReadonlyArray<IGitLabNote>
+  readonly notesLoading: boolean
+  readonly notesLoaded: boolean
+  readonly notesError: string | null
+  readonly noteDraft: string
+  readonly addingNote: boolean
   // The pipeline tab.
   readonly pipeline: IGitLabPipeline | null
   readonly pipelineLoading: boolean
@@ -104,6 +141,9 @@ interface IGitLabDialogState {
 
 /** Debouncing of the issue search field. */
 const IssueSearchDebounceMs = 300
+
+/** How long the redirect URI button shows "Copied". */
+const RedirectUriFeedbackMs = 2000
 
 /**
  * Arbor: a dialog to talk to the GitLab project of the repository — merge
@@ -121,9 +161,15 @@ export class GitLabDialog extends React.Component<
   /** Grows with every data request so that stale results are dropped. */
   private projectRequest = 0
   private mergeRequestRequest = 0
+  private mergeRequestDetailRequest = 0
+  private approvalsRequest = 0
+  private notesRequest = 0
   private pipelineRequest = 0
   private issuesRequest = 0
+  /** Grows with every OAuth sign-in so ignored results are dropped. */
+  private oauthRequest = 0
   private issueSearchTimeoutId: number | null = null
+  private redirectUriFeedbackTimeoutId: number | null = null
 
   public constructor(props: IGitLabDialogProps) {
     super(props)
@@ -138,6 +184,9 @@ export class GitLabDialog extends React.Component<
       signInInstance: '',
       signInToken: '',
       signingIn: false,
+      oauthApplicationId: '',
+      oauthWaiting: false,
+      redirectUriCopied: false,
       account: null,
       project: null,
       currentBranch: null,
@@ -153,6 +202,20 @@ export class GitLabDialog extends React.Component<
       mrDraft: false,
       mrRemoveSourceBranch: false,
       creatingMergeRequest: false,
+      openMergeRequestIid: null,
+      mergeRequestDetail: null,
+      mergeRequestDetailLoading: false,
+      mergeRequestDetailError: null,
+      approvals: null,
+      approvalsLoading: false,
+      approving: false,
+      approvalsError: null,
+      notes: [],
+      notesLoading: false,
+      notesLoaded: false,
+      notesError: null,
+      noteDraft: '',
+      addingNote: false,
       pipeline: null,
       pipelineLoading: false,
       pipelineLoaded: false,
@@ -176,6 +239,12 @@ export class GitLabDialog extends React.Component<
       window.clearTimeout(this.issueSearchTimeoutId)
       this.issueSearchTimeoutId = null
     }
+    if (this.redirectUriFeedbackTimeoutId !== null) {
+      window.clearTimeout(this.redirectUriFeedbackTimeoutId)
+      this.redirectUriFeedbackTimeoutId = null
+    }
+    // Nobody will come back to consume an OAuth sign-in result.
+    ++this.oauthRequest
   }
 
   /** The GitLab client of the signed-in account, or null. */
@@ -226,6 +295,20 @@ export class GitLabDialog extends React.Component<
       mergeRequestsLoading: false,
       mergeRequestsLoaded: false,
       mergeRequestsError: null,
+      openMergeRequestIid: null,
+      mergeRequestDetail: null,
+      mergeRequestDetailLoading: false,
+      mergeRequestDetailError: null,
+      approvals: null,
+      approvalsLoading: false,
+      approving: false,
+      approvalsError: null,
+      notes: [],
+      notesLoading: false,
+      notesLoaded: false,
+      notesError: null,
+      noteDraft: '',
+      addingNote: false,
       pipeline: null,
       pipelineLoading: false,
       pipelineLoaded: false,
@@ -258,6 +341,8 @@ export class GitLabDialog extends React.Component<
           phase: GitLabPhase.SignIn,
           remote,
           signInInstance: remote.instanceUrl,
+          oauthApplicationId:
+            this.accounts.getApplicationId(remote.instanceUrl) ?? '',
         })
         void this.followSignIn()
       } else {
@@ -322,7 +407,12 @@ export class GitLabDialog extends React.Component<
   // #region Sign in / sign out
 
   private onSignInInstanceChanged = (value: string) => {
-    this.setState({ signInInstance: value })
+    this.setState({
+      signInInstance: value,
+      // Prefill the Application ID saved for this instance, if any.
+      oauthApplicationId:
+        this.accounts.getApplicationId(normalizeInstanceUrl(value)) ?? '',
+    })
   }
 
   private onSignInTokenChanged = (value: string) => {
@@ -418,8 +508,110 @@ export class GitLabDialog extends React.Component<
     }
 
     this.token = null
-    this.setState({ signInToken: '' })
+    // Keep knowing the instance for this dialog, so signing out leads back
+    // to its sign-in form rather than to "no GitLab remote".
+    this.setState(state => ({
+      signInToken: '',
+      extraInstanceUrls: state.extraInstanceUrls.includes(account.instanceUrl)
+        ? state.extraInstanceUrls
+        : [...state.extraInstanceUrls, account.instanceUrl],
+    }))
     await this.detect()
+  }
+
+  // #endregion
+
+  // #region Browser (OAuth) sign-in
+
+  private onOAuthApplicationIdChanged = (value: string) => {
+    this.setState({ oauthApplicationId: value })
+  }
+
+  private onSignInWithBrowser = () => void this.signInWithBrowser()
+
+  /**
+   * Open the instance's OAuth page in the user's browser, wait for the
+   * authorization, save the account and go back to the signed-in view.
+   *
+   * Cancelling the wait only drops the result: the flow, driven by the main
+   * process, finishes on its own.
+   */
+  private async signInWithBrowser() {
+    const instanceUrl = normalizeInstanceUrl(this.state.signInInstance)
+    const applicationId = this.state.oauthApplicationId.trim()
+
+    if (instanceUrl.length === 0 || applicationId.length === 0) {
+      this.setState({
+        error:
+          instanceUrl.length === 0
+            ? 'Enter the URL of your GitLab instance first.'
+            : 'Enter the Application ID of your GitLab application.',
+      })
+      return
+    }
+
+    const request = ++this.oauthRequest
+    this.setStateIfMounted({ oauthWaiting: true, error: null })
+
+    try {
+      const tokens = await signInWithGitLabOAuth(instanceUrl, applicationId)
+
+      if (!this.isMounted || request !== this.oauthRequest) {
+        return
+      }
+
+      const user = await new GitLabAPI(
+        instanceUrl,
+        tokens.accessToken
+      ).getCurrentUser()
+
+      if (!this.isMounted || request !== this.oauthRequest) {
+        return
+      }
+
+      await this.accounts.saveOAuthAccount(
+        { instanceUrl, username: user.username, name: user.name },
+        tokens,
+        applicationId
+      )
+
+      if (!this.isMounted || request !== this.oauthRequest) {
+        return
+      }
+
+      this.setState({ oauthWaiting: false })
+      await this.detect()
+    } catch (e) {
+      if (!this.isMounted || request !== this.oauthRequest) {
+        return
+      }
+
+      const message = this.logAndDescribe(
+        e,
+        'unable to complete the browser sign-in'
+      )
+      this.setState({ oauthWaiting: false, error: message })
+    }
+  }
+
+  /** Forget the pending authorization and stay on the sign-in form. */
+  private onOAuthCancel = () => {
+    ++this.oauthRequest
+    this.setState({ oauthWaiting: false })
+  }
+
+  private onCopyRedirectUri = () => {
+    void writeClipboardText(GitLabOAuthRedirectUri)
+
+    this.setState({ redirectUriCopied: true })
+    if (this.redirectUriFeedbackTimeoutId !== null) {
+      window.clearTimeout(this.redirectUriFeedbackTimeoutId)
+    }
+
+    this.redirectUriFeedbackTimeoutId = window.setTimeout(() => {
+      this.redirectUriFeedbackTimeoutId = null
+      this.setStateIfMounted({ redirectUriCopied: false })
+    }, RedirectUriFeedbackMs)
   }
 
   // #endregion
@@ -718,27 +910,298 @@ export class GitLabDialog extends React.Component<
 
   // #endregion
 
+  // #region Merge request review
+
+  /**
+   * Open the review of a merge request by its iid: switch to its detail
+   * view and load its description, approvals and comments.
+   */
+  private openMergeRequestReview(iid: number) {
+    this.setState({
+      openMergeRequestIid: iid,
+      mergeRequestDetail: null,
+      mergeRequestDetailLoading: false,
+      mergeRequestDetailError: null,
+      approvals: null,
+      approvalsLoading: false,
+      approving: false,
+      approvalsError: null,
+      notes: [],
+      notesLoading: false,
+      notesLoaded: false,
+      notesError: null,
+      noteDraft: '',
+      addingNote: false,
+    })
+    void this.loadMergeRequestDetail(iid)
+  }
+
+  /** Close the review and go back to the lists of merge requests. */
+  private onBackToMergeRequests = () => {
+    // Invalidate any detail, approval or note still loading.
+    ++this.mergeRequestDetailRequest
+    ++this.approvalsRequest
+    ++this.notesRequest
+
+    this.setState({
+      openMergeRequestIid: null,
+      mergeRequestDetail: null,
+      mergeRequestDetailLoading: false,
+      mergeRequestDetailError: null,
+      approvals: null,
+      approvalsLoading: false,
+      approving: false,
+      approvalsError: null,
+      notes: [],
+      notesLoading: false,
+      notesLoaded: false,
+      notesError: null,
+      noteDraft: '',
+      addingNote: false,
+    })
+  }
+
+  private async loadMergeRequestDetail(iid: number) {
+    const { remote, api } = this.stateAPI()
+    if (remote === null || api === null) {
+      return
+    }
+
+    const request = ++this.mergeRequestDetailRequest
+    this.setState({
+      mergeRequestDetailLoading: true,
+      mergeRequestDetailError: null,
+    })
+
+    try {
+      const detail = await api.getMergeRequest(remote.projectPath, iid)
+      if (
+        !this.isMounted ||
+        request !== this.mergeRequestDetailRequest ||
+        this.state.openMergeRequestIid !== iid
+      ) {
+        return
+      }
+
+      this.setState({
+        mergeRequestDetail: detail,
+        mergeRequestDetailLoading: false,
+      })
+      void this.loadApprovals(iid)
+      void this.loadNotes(iid)
+    } catch (e) {
+      if (
+        !this.isMounted ||
+        request !== this.mergeRequestDetailRequest ||
+        this.state.openMergeRequestIid !== iid
+      ) {
+        return
+      }
+
+      const message = this.logAndDescribe(
+        e,
+        `unable to load the merge request !${iid}`
+      )
+      this.setState({
+        mergeRequestDetailLoading: false,
+        mergeRequestDetailError: message,
+      })
+    }
+  }
+
+  private async loadApprovals(iid: number) {
+    const { remote, api } = this.stateAPI()
+    if (remote === null || api === null) {
+      return
+    }
+
+    const request = ++this.approvalsRequest
+
+    try {
+      const approvals = await api.getApprovals(remote.projectPath, iid)
+      if (!this.isMounted || request !== this.approvalsRequest) {
+        return
+      }
+
+      this.setState({
+        approvals,
+        approvalsLoading: false,
+        approving: false,
+        approvalsError: null,
+      })
+    } catch (e) {
+      if (!this.isMounted || request !== this.approvalsRequest) {
+        return
+      }
+
+      const message = this.logAndDescribe(
+        e,
+        `unable to load the approvals of the merge request !${iid}`
+      )
+      this.setState({
+        approvalsLoading: false,
+        approving: false,
+        approvalsError: message,
+      })
+    }
+  }
+
+  private onApproveClicked = () => void this.setApproval(true)
+
+  private onRevokeApprovalClicked = () => void this.setApproval(false)
+
+  /** Approve or un-approve the reviewed merge request as the current user. */
+  private async setApproval(approve: boolean) {
+    const { remote, api } = this.stateAPI()
+    const iid = this.state.openMergeRequestIid
+
+    if (
+      remote === null ||
+      api === null ||
+      iid === null ||
+      this.state.approving
+    ) {
+      return
+    }
+
+    this.setState({ approving: true, approvalsError: null })
+
+    try {
+      if (approve) {
+        await api.approve(remote.projectPath, iid)
+      } else {
+        await api.unapprove(remote.projectPath, iid)
+      }
+
+      await this.loadApprovals(iid)
+    } catch (e) {
+      if (!this.isMounted) {
+        return
+      }
+
+      const message = this.logAndDescribe(
+        e,
+        `unable to ${
+          approve ? 'approve' : 'revoke the approval of'
+        } the merge request !${iid}`
+      )
+      this.setState({
+        approving: false,
+        approvalsError: message,
+      })
+    }
+  }
+
+  private async loadNotes(iid: number) {
+    const { remote, api } = this.stateAPI()
+    if (remote === null || api === null) {
+      return
+    }
+
+    const request = ++this.notesRequest
+
+    try {
+      const notes = await api.listNotes(remote.projectPath, iid)
+      if (!this.isMounted || request !== this.notesRequest) {
+        return
+      }
+
+      this.setState({
+        notes,
+        notesLoading: false,
+        notesLoaded: true,
+        notesError: null,
+      })
+    } catch (e) {
+      if (!this.isMounted || request !== this.notesRequest) {
+        return
+      }
+
+      const message = this.logAndDescribe(
+        e,
+        `unable to load the comments of the merge request !${iid}`
+      )
+      this.setState({
+        notesLoading: false,
+        notesLoaded: true,
+        notesError: message,
+      })
+    }
+  }
+
+  private onNoteDraftChanged = (value: string) => {
+    this.setState({ noteDraft: value })
+  }
+
+  private onAddCommentClicked = () => void this.addComment()
+
+  /** Post the comment drafted for the reviewed merge request. */
+  private async addComment() {
+    const { remote, api } = this.stateAPI()
+    const iid = this.state.openMergeRequestIid
+    const body = this.state.noteDraft.trim()
+
+    if (
+      remote === null ||
+      api === null ||
+      iid === null ||
+      body.length === 0 ||
+      this.state.addingNote
+    ) {
+      return
+    }
+
+    this.setState({ addingNote: true, notesError: null })
+
+    try {
+      await api.addNote(remote.projectPath, iid, body)
+      if (!this.isMounted) {
+        return
+      }
+
+      this.setState({ noteDraft: '', addingNote: false })
+      await this.loadNotes(iid)
+    } catch (e) {
+      if (!this.isMounted) {
+        return
+      }
+
+      const message = this.logAndDescribe(
+        e,
+        `unable to add a comment to the merge request !${iid}`
+      )
+      this.setState({ addingNote: false, notesError: message })
+    }
+  }
+
+  // #endregion
+
   private openInBrowser = (event: React.MouseEvent<HTMLAnchorElement>) => {
     event.preventDefault()
     void this.props.dispatcher.openInBrowser(event.currentTarget.href)
-  }
-
-  private openMergeRequest = (mergeRequest: IGitLabMergeRequest) => {
-    void this.props.dispatcher.openInBrowser(mergeRequest.webUrl)
   }
 
   private openIssue = (issue: IGitLabIssue) => {
     void this.props.dispatcher.openInBrowser(issue.webUrl)
   }
 
-  /** Open the merge request of the clicked row, by its iid. */
+  /** Open the review of the merge request of the clicked row, by its iid. */
   private onMergeRequestClicked = (
     event: React.MouseEvent<HTMLButtonElement>
   ) => {
     const iid = Number(event.currentTarget.dataset.iid)
-    const mergeRequest = this.state.mergeRequests.find(mr => mr.iid === iid)
-    if (mergeRequest !== undefined) {
-      this.openMergeRequest(mergeRequest)
+    if (Number.isFinite(iid) && this.state.openMergeRequestIid === null) {
+      this.openMergeRequestReview(iid)
+    }
+  }
+
+  /** Open the review of the merge request of the current branch. */
+  private onCurrentMergeRequestClicked = (
+    event: React.MouseEvent<HTMLButtonElement>
+  ) => {
+    const iid = Number(event.currentTarget.dataset.iid)
+    if (Number.isFinite(iid) && this.state.openMergeRequestIid === null) {
+      this.openMergeRequestReview(iid)
     }
   }
 
@@ -760,12 +1223,16 @@ export class GitLabDialog extends React.Component<
   private onSubmit = () => {
     switch (this.state.phase) {
       case GitLabPhase.SignIn:
+        if (this.state.oauthWaiting) {
+          return
+        }
         void this.signIn()
         break
       case GitLabPhase.SignedIn:
         if (
           this.state.tab === GitLabTab.MergeRequests &&
-          this.state.currentMergeRequest === null
+          this.state.currentMergeRequest === null &&
+          this.state.openMergeRequestIid === null
         ) {
           void this.createMergeRequest()
         }
@@ -893,10 +1360,69 @@ export class GitLabDialog extends React.Component<
           <Button
             className="arbor-gitlab-sign-in-button"
             onClick={this.onSignIn}
+            disabled={this.state.oauthWaiting}
           >
             Sign in
           </Button>
         </div>
+        {this.renderOAuthSignIn()}
+      </div>
+    )
+  }
+
+  /** The browser sign-in section under the token sign-in. */
+  private renderOAuthSignIn() {
+    return (
+      <div className="arbor-gitlab-oauth">
+        <p className="arbor-gitlab-oauth-explanation">
+          Or sign in with your browser. Create an application in GitLab &gt;
+          Preferences &gt; Applications with the `api` scope and the redirect
+          URI below.
+        </p>
+        <div className="arbor-gitlab-redirect">
+          <code className="arbor-gitlab-redirect-uri">
+            {GitLabOAuthRedirectUri}
+          </code>
+          <Button
+            className="arbor-gitlab-copy-redirect"
+            onClick={this.onCopyRedirectUri}
+            ariaLabel="Copy the redirect URI"
+          >
+            {this.state.redirectUriCopied ? 'Copied' : 'Copy'}
+          </Button>
+        </div>
+        <TextBox
+          label="Application ID"
+          className="arbor-gitlab-application-id"
+          placeholder="The ID of your GitLab application"
+          value={this.state.oauthApplicationId}
+          onValueChanged={this.onOAuthApplicationIdChanged}
+          disabled={this.state.oauthWaiting}
+        />
+        {this.state.oauthWaiting ? (
+          <div className="arbor-gitlab-oauth-waiting">
+            <span className="arbor-gitlab-oauth-waiting-text">
+              {__DARWIN__
+                ? 'Waiting for Authorization in Your Browser…'
+                : 'Waiting for authorization in your browser…'}
+            </span>
+            <Button
+              className="arbor-gitlab-oauth-cancel"
+              onClick={this.onOAuthCancel}
+              ariaLabel="Cancel the browser sign-in"
+            >
+              {__DARWIN__ ? 'Cancel' : 'Cancel'}
+            </Button>
+          </div>
+        ) : (
+          <Button
+            className="arbor-gitlab-oauth-sign-in"
+            onClick={this.onSignInWithBrowser}
+            ariaLabel="Sign in with the browser"
+          >
+            {__DARWIN__ ? 'Sign In With Browser' : 'Sign in with browser'}
+          </Button>
+        )}
       </div>
     )
   }
@@ -970,6 +1496,14 @@ export class GitLabDialog extends React.Component<
     const { mergeRequestsLoading, mergeRequestsLoaded, currentMergeRequest } =
       this.state
 
+    if (this.state.openMergeRequestIid !== null) {
+      return (
+        <div className="arbor-gitlab-tab-body">
+          {this.renderMergeRequestDetail()}
+        </div>
+      )
+    }
+
     return (
       <div className="arbor-gitlab-tab-body">
         {this.renderTabError(this.state.mergeRequestsError)}
@@ -996,20 +1530,20 @@ export class GitLabDialog extends React.Component<
 
   private renderCurrentMergeRequest(mergeRequest: IGitLabMergeRequest) {
     return (
-      <div className="arbor-gitlab-mr-summary">
-        <div className="arbor-gitlab-mr-heading">
+      <button
+        type="button"
+        className="arbor-gitlab-mr arbor-gitlab-mr-summary"
+        data-iid={mergeRequest.iid}
+        aria-label={'Review merge request ' + mergeRequest.title}
+        onClick={this.onCurrentMergeRequestClicked}
+      >
+        <span className="arbor-gitlab-mr-heading">
           {mergeRequest.draft && (
             <span className="arbor-gitlab-draft">Draft</span>
           )}
-          <a
-            className="arbor-gitlab-link arbor-gitlab-mr-link"
-            href={mergeRequest.webUrl}
-            onClick={this.openInBrowser}
-          >
-            {mergeRequest.title}
-          </a>
-        </div>
-        <div className="arbor-gitlab-mr-meta">
+          <span className="arbor-gitlab-mr-title">{mergeRequest.title}</span>
+        </span>
+        <span className="arbor-gitlab-mr-meta">
           <span className="arbor-gitlab-mr-iid">!{mergeRequest.iid}</span>
           <span className="arbor-gitlab-mr-branches">
             {mergeRequest.sourceBranch} → {mergeRequest.targetBranch}
@@ -1019,8 +1553,8 @@ export class GitLabDialog extends React.Component<
               {__DARWIN__ ? 'By' : 'by'} {mergeRequest.author}
             </span>
           ) : null}
-        </div>
-      </div>
+        </span>
+      </button>
     )
   }
 
@@ -1135,6 +1669,201 @@ export class GitLabDialog extends React.Component<
           </li>
         ))}
       </ul>
+    )
+  }
+
+  /** The review of an open merge request: details, approvals, comments. */
+  private renderMergeRequestDetail() {
+    const {
+      mergeRequestDetail: detail,
+      mergeRequestDetailLoading,
+      mergeRequestDetailError,
+    } = this.state
+
+    return (
+      <div className="arbor-gitlab-mr-detail">
+        <div className="arbor-gitlab-mr-detail-header">
+          <Button
+            className="arbor-gitlab-mr-back"
+            onClick={this.onBackToMergeRequests}
+            ariaLabel="Back to the merge requests"
+          >
+            Back
+          </Button>
+          {detail !== null && (
+            <a
+              className="arbor-gitlab-link arbor-gitlab-open-gitlab"
+              href={detail.webUrl}
+              onClick={this.openInBrowser}
+              aria-label="Open this merge request in GitLab"
+            >
+              Open in GitLab
+            </a>
+          )}
+        </div>
+        {detail === null
+          ? mergeRequestDetailError !== null
+            ? this.renderTabError(mergeRequestDetailError)
+            : mergeRequestDetailLoading
+            ? this.renderStatus(
+                __DARWIN__ ? 'Loading Merge Request…' : 'Loading merge request…'
+              )
+            : null
+          : this.renderMergeRequestDetailBody(detail)}
+      </div>
+    )
+  }
+
+  private renderMergeRequestDetailBody(detail: IGitLabMergeRequestDetails) {
+    const mergeStatus = describeGitLabMergeStatus(detail.mergeStatus)
+
+    return (
+      <>
+        <div className="arbor-gitlab-mr-detail-info">
+          <div className="arbor-gitlab-mr-detail-heading">
+            {detail.draft && <span className="arbor-gitlab-draft">Draft</span>}
+            <h3 className="arbor-gitlab-mr-detail-title">{detail.title}</h3>
+          </div>
+          <div className="arbor-gitlab-mr-meta">
+            <span className="arbor-gitlab-mr-iid">!{detail.iid}</span>
+            <span className="arbor-gitlab-mr-branches">
+              {detail.sourceBranch} → {detail.targetBranch}
+            </span>
+            {detail.author.length > 0 ? (
+              <span className="arbor-gitlab-mr-author">
+                {__DARWIN__ ? 'By' : 'by'} {detail.author}
+              </span>
+            ) : null}
+            {mergeStatus.label.length > 0 ? (
+              <span
+                className={`arbor-gitlab-mr-merge-status${
+                  mergeStatus.needsAttention ? ' warning' : ''
+                }`}
+              >
+                {mergeStatus.label}
+              </span>
+            ) : null}
+          </div>
+          {detail.hasConflicts ? (
+            <p className="arbor-gitlab-mr-conflicts">
+              This merge request has conflicts: resolve them before it can
+              merge.
+            </p>
+          ) : null}
+          {detail.description.length > 0 ? (
+            <p className="arbor-gitlab-mr-description">{detail.description}</p>
+          ) : null}
+        </div>
+        {this.renderApprovals()}
+        {this.renderNotes()}
+      </>
+    )
+  }
+
+  private renderApprovals() {
+    const { approvals, approvalsLoading, approvalsError } = this.state
+
+    return (
+      <section className="arbor-gitlab-approvals">
+        <h3 className="arbor-gitlab-section-title">Approvals</h3>
+        {this.renderTabError(approvalsError)}
+        {approvals === null ? (
+          approvalsLoading ? (
+            this.renderStatus('Loading approvals…')
+          ) : null
+        ) : (
+          <>
+            <div className="arbor-gitlab-approvals-summary">
+              {describeGitLabApprovals(approvals)}
+            </div>
+            <div className="arbor-gitlab-approvals-actions">
+              {approvals.userHasApproved ? (
+                <Button
+                  className="arbor-gitlab-revoke-approval"
+                  onClick={this.onRevokeApprovalClicked}
+                  disabled={this.state.approving || approvalsLoading}
+                  ariaLabel="Revoke your approval"
+                >
+                  {__DARWIN__ ? 'Revoke Approval' : 'Revoke approval'}
+                </Button>
+              ) : approvals.userCanApprove ? (
+                <Button
+                  className="arbor-gitlab-approve"
+                  onClick={this.onApproveClicked}
+                  disabled={this.state.approving || approvalsLoading}
+                  ariaLabel="Approve this merge request"
+                >
+                  Approve
+                </Button>
+              ) : null}
+              {this.state.approving ? (
+                <span className="arbor-gitlab-status">
+                  {__DARWIN__
+                    ? 'Saving Your Approval…'
+                    : 'Saving your approval…'}
+                </span>
+              ) : null}
+            </div>
+          </>
+        )}
+      </section>
+    )
+  }
+
+  private renderNotes() {
+    const { notes, notesLoading, notesLoaded, notesError } = this.state
+    const comments = filterOutSystemNotes(notes)
+
+    return (
+      <section className="arbor-gitlab-notes">
+        <h3 className="arbor-gitlab-section-title">Comments</h3>
+        {this.renderTabError(notesError)}
+        {notesLoading && !notesLoaded
+          ? this.renderStatus('Loading comments…')
+          : notesError === null && comments.length === 0
+          ? this.renderStatus('No comment yet.')
+          : null}
+        {comments.length > 0 ? (
+          <ul className="arbor-gitlab-note-list">
+            {comments.map(note => (
+              <li key={note.id} className="arbor-gitlab-note">
+                <div className="arbor-gitlab-note-header">
+                  <span className="arbor-gitlab-note-author">
+                    @{note.author}
+                  </span>
+                  <RelativeTime
+                    className="arbor-gitlab-note-time"
+                    date={new Date(note.createdAt)}
+                  />
+                </div>
+                <div className="arbor-gitlab-note-body">{note.body}</div>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+        <div className="arbor-gitlab-add-note">
+          <TextArea
+            label="Add a comment"
+            textareaClassName="arbor-gitlab-note-draft"
+            ariaLabel="Comment"
+            placeholder="Write a comment on this merge request"
+            value={this.state.noteDraft}
+            onValueChanged={this.onNoteDraftChanged}
+            disabled={this.state.addingNote}
+            rows={3}
+          />
+          <Button
+            className="arbor-gitlab-add-note-button"
+            onClick={this.onAddCommentClicked}
+            disabled={
+              this.state.addingNote || this.state.noteDraft.trim().length === 0
+            }
+            ariaLabel="Add a comment to this merge request"
+          >
+            Comment
+          </Button>
+        </div>
+      </section>
     )
   }
 

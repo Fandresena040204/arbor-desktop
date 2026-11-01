@@ -3,7 +3,7 @@ import * as React from 'react'
 import { ArborGraphView } from './arbor/graph/graph-view'
 import { Repository } from '../models/repository'
 import { Commit, CommitOneLine } from '../models/commit'
-import { TipState } from '../models/tip'
+import { Tip, TipState } from '../models/tip'
 import { UiView } from './ui-view'
 import { Changes, ChangesSidebar } from './changes'
 import { NoChanges } from './changes/no-changes'
@@ -152,6 +152,18 @@ interface IRepositoryViewProps {
 interface IRepositoryViewState {
   readonly changesListScrollTop: number
   readonly compareListScrollTop: number
+}
+
+/** Arbor: identifies HEAD, so the graph reloads on checkout, commit, reset… */
+function getArborGraphHeadKey(tip: Tip): string {
+  switch (tip.kind) {
+    case TipState.Valid:
+      return `${tip.branch.name}@${tip.branch.tip.sha}`
+    case TipState.Detached:
+      return `detached@${tip.currentSha}`
+    default:
+      return tip.kind
+  }
 }
 
 const enum Tab {
@@ -703,6 +715,7 @@ export class RepositoryView extends React.Component<
               changedFiles={
                 this.props.state.changesState.workingDirectory.files.length
               }
+              headKey={getArborGraphHeadKey(this.props.state.branchesState.tip)}
             />
           ) : (
             this.renderContentForChanges()

@@ -53,6 +53,30 @@ export interface IGitLabIssue {
   readonly webUrl: string
 }
 
+/** Approval state of a merge request. */
+export interface IGitLabApprovals {
+  readonly approved: boolean
+  readonly approvalsRequired: number
+  readonly approvalsLeft: number
+  /** Usernames of the approvers. */
+  readonly approvedBy: ReadonlyArray<string>
+  /** Whether the current user already approved. */
+  readonly userHasApproved: boolean
+  /** Whether the current user may approve. */
+  readonly userCanApprove: boolean
+}
+
+/** A note (comment or system event) on a merge request. */
+export interface IGitLabNote {
+  readonly id: number
+  readonly body: string
+  readonly author: string
+  /** ISO date. */
+  readonly createdAt: string
+  /** System notes are events (pushed commits, label changes…), not comments. */
+  readonly system: boolean
+}
+
 /** Raw user shape returned by the GitLab API. */
 interface IRawGitLabUser {
   readonly id: number
@@ -80,6 +104,35 @@ interface IRawGitLabMergeRequest {
   readonly author?: { readonly username?: string } | null
   readonly draft?: boolean | null
   readonly work_in_progress?: boolean | null
+}
+
+/** Raw merge request detail shape returned by the GitLab API. */
+interface IRawGitLabMergeRequestDetails extends IRawGitLabMergeRequest {
+  readonly description?: string | null
+  readonly has_conflicts?: boolean | null
+  readonly detailed_merge_status?: string | null
+  readonly merge_status?: string | null
+}
+
+/** Raw approval state returned by the GitLab API. */
+interface IRawGitLabApprovals {
+  readonly approved?: boolean | null
+  readonly approvals_required?: number | null
+  readonly approvals_left?: number | null
+  readonly approved_by?: ReadonlyArray<{
+    readonly user?: { readonly username?: string } | null
+  }> | null
+  readonly user_has_approved?: boolean | null
+  readonly user_can_approve?: boolean | null
+}
+
+/** Raw note shape returned by the GitLab API. */
+interface IRawGitLabNote {
+  readonly id: number
+  readonly body: string
+  readonly author?: { readonly username?: string } | null
+  readonly created_at: string
+  readonly system?: boolean | null
 }
 
 /** Raw pipeline shape returned by the GitLab API. */
@@ -162,6 +215,49 @@ function toIssue(raw: IRawGitLabIssue): IGitLabIssue {
     title: raw.title,
     state: raw.state as IGitLabIssue['state'],
     webUrl: raw.web_url,
+  }
+}
+
+/** Convert a raw merge request detail into the public shape. */
+function toMergeRequestDetails(
+  raw: IRawGitLabMergeRequestDetails
+): IGitLabMergeRequest & {
+  readonly description: string
+  readonly hasConflicts: boolean
+  readonly mergeStatus: string
+} {
+  return {
+    ...toMergeRequest(raw),
+    description: raw.description ?? '',
+    hasConflicts: raw.has_conflicts ?? false,
+    mergeStatus: raw.detailed_merge_status ?? raw.merge_status ?? '',
+  }
+}
+
+/** Convert a raw approval state into the public shape. */
+function toApprovals(raw: IRawGitLabApprovals): IGitLabApprovals {
+  const approvedBy = (raw.approved_by ?? [])
+    .map(approval => approval.user?.username)
+    .filter((username): username is string => username !== undefined)
+
+  return {
+    approved: raw.approved ?? false,
+    approvalsRequired: raw.approvals_required ?? 0,
+    approvalsLeft: raw.approvals_left ?? 0,
+    approvedBy,
+    userHasApproved: raw.user_has_approved ?? false,
+    userCanApprove: raw.user_can_approve ?? false,
+  }
+}
+
+/** Convert a raw note into the public shape. */
+function toNote(raw: IRawGitLabNote): IGitLabNote {
+  return {
+    id: raw.id,
+    body: raw.body,
+    author: raw.author?.username ?? '',
+    createdAt: raw.created_at,
+    system: raw.system ?? false,
   }
 }
 
@@ -282,6 +378,106 @@ export class GitLabAPI {
   }
 
   /**
+   * Get a single merge request, including its description and merge status.
+   *
+   * @param projectPath The project path including namespaces.
+   * @param iid The project-scoped merge request number.
+   */
+  public async getMergeRequest(
+    projectPath: string,
+    iid: number
+  ): Promise<
+    IGitLabMergeRequest & {
+      readonly description: string
+      readonly hasConflicts: boolean
+      readonly mergeStatus: string
+    }
+  > {
+    const raw = await this.getJson<IRawGitLabMergeRequestDetails>(
+      `${this.projectPath(projectPath)}/merge_requests/${iid}`
+    )
+    return toMergeRequestDetails(raw)
+  }
+
+  /**
+   * Get the approval state of a merge request.
+   *
+   * @param projectPath The project path including namespaces.
+   * @param iid The project-scoped merge request number.
+   */
+  public async getApprovals(
+    projectPath: string,
+    iid: number
+  ): Promise<IGitLabApprovals> {
+    const raw = await this.getJson<IRawGitLabApprovals>(
+      `${this.projectPath(projectPath)}/merge_requests/${iid}/approvals`
+    )
+    return toApprovals(raw)
+  }
+
+  /**
+   * Approve a merge request as the current user.
+   *
+   * @param projectPath The project path including namespaces.
+   * @param iid The project-scoped merge request number.
+   */
+  public async approve(projectPath: string, iid: number): Promise<void> {
+    await this.request(
+      `${this.projectPath(projectPath)}/merge_requests/${iid}/approve`,
+      { method: 'POST' }
+    )
+  }
+
+  /**
+   * Remove the current user's approval from a merge request.
+   *
+   * @param projectPath The project path including namespaces.
+   * @param iid The project-scoped merge request number.
+   */
+  public async unapprove(projectPath: string, iid: number): Promise<void> {
+    await this.request(
+      `${this.projectPath(projectPath)}/merge_requests/${iid}/unapprove`,
+      { method: 'POST' }
+    )
+  }
+
+  /**
+   * List the notes of a merge request, oldest first.
+   *
+   * @param projectPath The project path including namespaces.
+   * @param iid The project-scoped merge request number.
+   */
+  public async listNotes(
+    projectPath: string,
+    iid: number
+  ): Promise<ReadonlyArray<IGitLabNote>> {
+    const raw = await this.getPages<IRawGitLabNote>(
+      `${this.projectPath(projectPath)}/merge_requests/${iid}/notes`,
+      { sort: 'asc', order_by: 'created_at' }
+    )
+    return raw.map(toNote)
+  }
+
+  /**
+   * Add a comment to a merge request.
+   *
+   * @param projectPath The project path including namespaces.
+   * @param iid The project-scoped merge request number.
+   * @param body The note body, in GitLab-flavored Markdown.
+   */
+  public async addNote(
+    projectPath: string,
+    iid: number,
+    body: string
+  ): Promise<IGitLabNote> {
+    const raw = await this.postJson<IRawGitLabNote>(
+      `${this.projectPath(projectPath)}/merge_requests/${iid}/notes`,
+      { body }
+    )
+    return toNote(raw)
+  }
+
+  /**
    * Get the latest pipeline for a ref, or null when there is none.
    *
    * @param projectPath The project path including namespaces.
@@ -293,6 +489,28 @@ export class GitLabAPI {
   ): Promise<IGitLabPipeline | null> {
     const query = toQueryString({
       ref,
+      per_page: '1',
+      order_by: 'id',
+      sort: 'desc',
+    })
+    const raw = await this.getJson<ReadonlyArray<IRawGitLabPipeline>>(
+      `${this.projectPath(projectPath)}/pipelines?${query}`
+    )
+    return raw.length === 0 ? null : toPipeline(raw[0])
+  }
+
+  /**
+   * Get the latest pipeline for a commit, or null when there is none.
+   *
+   * @param projectPath The project path including namespaces.
+   * @param sha The commit SHA.
+   */
+  public async getPipelineForSha(
+    projectPath: string,
+    sha: string
+  ): Promise<IGitLabPipeline | null> {
+    const query = toQueryString({
+      sha,
       per_page: '1',
       order_by: 'id',
       sort: 'desc',
@@ -374,7 +592,9 @@ export class GitLabAPI {
   private async request(path: string, init?: RequestInit): Promise<Response> {
     const headers: Record<string, string> = {
       Accept: 'application/json',
-      'PRIVATE-TOKEN': this.token,
+      // Works for personal access tokens and OAuth tokens alike, unlike
+      // the PRIVATE-TOKEN header which OAuth tokens aren't accepted in.
+      Authorization: `Bearer ${this.token}`,
     }
 
     if (init?.body !== undefined) {

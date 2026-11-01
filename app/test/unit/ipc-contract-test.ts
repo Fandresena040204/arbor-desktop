@@ -110,6 +110,9 @@ describe('IPC channel contract', () => {
     'request-notifications-permission',
     // Arbor: integrated terminal.
     'arbor-terminal-start',
+    // Arbor: GitLab OAuth.
+    'arbor-gitlab-oauth-start',
+    'arbor-gitlab-oauth-refresh',
   ] as const
 
   describe('RequestChannels', () => {

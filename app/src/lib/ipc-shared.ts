@@ -26,6 +26,17 @@ export type ArborTerminalStartResult =
     }
   | { readonly error: string }
 
+/** Arbor: result of a GitLab OAuth sign-in or token refresh. */
+export type ArborGitLabOAuthResult =
+  | {
+      readonly tokens: {
+        readonly accessToken: string
+        readonly refreshToken: string
+        readonly expiresAt: number
+      }
+    }
+  | { readonly error: string }
+
 /**
  * Defines the simplex IPC channel names we use from the renderer
  * process along with their signatures. This type is used from both
@@ -163,4 +174,14 @@ export type RequestResponseChannels = {
     cols: number,
     rows: number
   ) => Promise<ArborTerminalStartResult>
+  // Arbor: GitLab OAuth, see app/src/main-process/arbor/gitlab-oauth-host.ts
+  'arbor-gitlab-oauth-start': (
+    instanceUrl: string,
+    applicationId: string
+  ) => Promise<ArborGitLabOAuthResult>
+  'arbor-gitlab-oauth-refresh': (
+    instanceUrl: string,
+    applicationId: string,
+    refreshToken: string
+  ) => Promise<ArborGitLabOAuthResult>
 }

@@ -2,7 +2,11 @@ import {
   parseGitLabRemote,
   IGitLabRemote,
 } from '../../../lib/arbor/gitlab/gitlab-remote'
-import { GitLabPipelineStatus } from '../../../lib/arbor/gitlab/gitlab-api'
+import {
+  GitLabPipelineStatus,
+  IGitLabMergeRequest,
+  IGitLabNote,
+} from '../../../lib/arbor/gitlab/gitlab-api'
 
 /** A remote as returned by `getRemotes`, without the extra `IRemote` shape. */
 export interface INamedRemote {
@@ -14,6 +18,17 @@ export interface INamedRemote {
 export interface IGitLabPipelineStatusInfo {
   readonly label: string
   readonly className: string
+}
+
+/**
+ * A merge request with the extra data of its detail view: its description,
+ * its merge status and whether it has conflicts.
+ */
+export interface IGitLabMergeRequestDetails extends IGitLabMergeRequest {
+  readonly description: string
+  readonly hasConflicts: boolean
+  /** The raw `merge_status`/`detailed_merge_status` value of GitLab. */
+  readonly mergeStatus: string
 }
 
 /**
@@ -140,4 +155,125 @@ function capitalize(word: string): string {
   return code >= 65 && code <= 90
     ? word
     : word.charAt(0).toUpperCase() + word.slice(1)
+}
+
+/** How to render the merge status of a merge request. */
+export interface IGitLabMergeStatusInfo {
+  /** The display label, empty when the status is unknown or missing. */
+  readonly label: string
+  /** True for statuses that prevent (or delay) the merge. */
+  readonly needsAttention: boolean
+}
+
+const MergeStatusLabels: ReadonlyMap<string, string> = new Map([
+  ['can_be_merged', 'Can be merged'],
+  ['mergeable', 'Can be merged'],
+  ['cannot_be_merged', 'Conflicts'],
+  ['conflicts', 'Conflicts'],
+  ['cannot_be_merged_rechecking', 'Checking for conflicts'],
+  ['unchecked', 'Not checked'],
+  ['checking', 'Checking'],
+  ['blocked', 'Blocked'],
+  ['ci_still_running', 'Pipeline still running'],
+  ['ci_missing', 'Pipeline missing'],
+  ['ci_must_pass', 'Pipeline must pass'],
+  ['external_status_checks', 'Status checks'],
+  ['approved_status_checks_failed', 'Status checks failed'],
+  ['discussions_not_resolved', 'Unresolved threads'],
+  ['policies_denied', 'Merge blocked by policy'],
+])
+
+/** The merge statuses that stop the merge request from merging. */
+const BlockingMergeStatuses = new Set([
+  'cannot_be_merged',
+  'conflicts',
+  'cannot_be_merged_rechecking',
+  'blocked',
+  'ci_must_pass',
+  'approved_status_checks_failed',
+  'discussions_not_resolved',
+  'policies_denied',
+])
+
+/**
+ * Describe a GitLab merge status (from `merge_status` or the more detailed
+ * `detailed_merge_status`) with its display label and whether it blocks the
+ * merge. Unknown statuses get a readable version of their raw value.
+ */
+export function describeGitLabMergeStatus(
+  status: string
+): IGitLabMergeStatusInfo {
+  const trimmed = status.trim().toLowerCase()
+
+  if (trimmed.length === 0) {
+    return { label: '', needsAttention: false }
+  }
+
+  const known = MergeStatusLabels.get(trimmed)
+  if (known !== undefined) {
+    return { label: known, needsAttention: BlockingMergeStatuses.has(trimmed) }
+  }
+
+  return {
+    label: prettyGitLabStatus(trimmed),
+    needsAttention: BlockingMergeStatuses.has(trimmed),
+  }
+}
+
+/** Turn a snake-cased status like `ci_still_running` into display words. */
+function prettyGitLabStatus(status: string): string {
+  const words = status
+    .split('_')
+    .map(word => word.trim())
+    .filter(word => word.length > 0)
+
+  return words.map(word => capitalize(word)).join(' ')
+}
+
+/** The shape of the approval state a summary needs. */
+export interface IGitLabApprovalsSummaryInput {
+  readonly approvalsRequired: number
+  /** Usernames of the users who already approved. */
+  readonly approvedBy: ReadonlyArray<string>
+}
+
+/**
+ * Summarize the approval state of a merge request in a single line: the
+ * approvers when there are some, otherwise the requirement left, or a line
+ * saying no approval is required.
+ */
+export function describeGitLabApprovals(
+  approvals: IGitLabApprovalsSummaryInput
+): string {
+  const usernames = [
+    ...new Set(
+      approvals.approvedBy
+        .map(name => name.trim())
+        .filter(name => name.length > 0)
+    ),
+  ].map(name => `@${name}`)
+
+  if (usernames.length > 0) {
+    return 'Approved by ' + usernames.join(', ')
+  }
+
+  return approvalsRequiredLabel(approvals.approvalsRequired)
+}
+
+/** The label of the approval requirement, without any approver. */
+function approvalsRequiredLabel(approvalsRequired: number): string {
+  if (approvalsRequired <= 0) {
+    return 'No approvals required'
+  }
+
+  return approvalsRequired === 1
+    ? '1 approval required'
+    : `${approvalsRequired} approvals required`
+}
+
+/** The notes which are real comments (system events are not comments). */
+export function filterOutSystemNotes(
+  notes: ReadonlyArray<IGitLabNote>
+): ReadonlyArray<IGitLabNote> {
+  return notes.filter(note => !note.system)
 }

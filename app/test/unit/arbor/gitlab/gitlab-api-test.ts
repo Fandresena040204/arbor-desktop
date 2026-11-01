@@ -94,8 +94,8 @@ describe('arbor/gitlab/gitlab-api', () => {
       assert.strictEqual(fake.calls.length, 1)
       assert.strictEqual(fake.calls[0].url, 'https://gitlab.com/api/v4/user')
       assert.strictEqual(
-        header(fake.calls[0].init, 'PRIVATE-TOKEN'),
-        'secret-token'
+        header(fake.calls[0].init, 'Authorization'),
+        'Bearer secret-token'
       )
       assert.strictEqual(
         header(fake.calls[0].init, 'Accept'),
@@ -343,6 +343,309 @@ describe('arbor/gitlab/gitlab-api', () => {
     })
   })
 
+  describe('getMergeRequest', () => {
+    it('maps the description, conflicts and detailed merge status', async () => {
+      const { api, fake } = createAPI([
+        jsonResponse({
+          iid: 9,
+          title: 'Add GitLab support',
+          state: 'opened',
+          source_branch: 'feature/gitlab',
+          target_branch: 'main',
+          web_url: 'https://gitlab.com/group/project/-/merge_requests/9',
+          author: { username: 'alice' },
+          draft: false,
+          description: 'Adds the API client',
+          has_conflicts: true,
+          detailed_merge_status: 'ci_must_pass',
+          merge_status: 'cannot_be_merged',
+        }),
+      ])
+
+      const mergeRequest = await api.getMergeRequest('group/project', 9)
+
+      assert.deepStrictEqual(mergeRequest, {
+        iid: 9,
+        title: 'Add GitLab support',
+        state: 'opened',
+        sourceBranch: 'feature/gitlab',
+        targetBranch: 'main',
+        webUrl: 'https://gitlab.com/group/project/-/merge_requests/9',
+        author: 'alice',
+        draft: false,
+        description: 'Adds the API client',
+        hasConflicts: true,
+        mergeStatus: 'ci_must_pass',
+      })
+
+      assert.strictEqual(fake.calls.length, 1)
+      assert.strictEqual(
+        fake.calls[0].url,
+        'https://gitlab.com/api/v4/projects/group%2Fproject/merge_requests/9'
+      )
+      assert.strictEqual(fake.calls[0].init?.method, undefined)
+    })
+
+    it('falls back to merge_status and defaults missing fields', async () => {
+      const { api } = createAPI([
+        jsonResponse({
+          iid: 3,
+          title: 'Legacy response',
+          state: 'opened',
+          source_branch: 'feature/a',
+          target_branch: 'main',
+          web_url: 'https://gitlab.com/group/project/-/merge_requests/3',
+          merge_status: 'can_be_merged',
+        }),
+      ])
+
+      const mergeRequest = await api.getMergeRequest('group/project', 3)
+
+      assert.strictEqual(mergeRequest.mergeStatus, 'can_be_merged')
+      assert.strictEqual(mergeRequest.description, '')
+      assert.strictEqual(mergeRequest.hasConflicts, false)
+      assert.strictEqual(mergeRequest.author, '')
+      assert.strictEqual(mergeRequest.draft, false)
+    })
+
+    it('defaults the merge status when the server sends none', async () => {
+      const { api } = createAPI([
+        jsonResponse({
+          iid: 4,
+          title: 'No status',
+          state: 'opened',
+          source_branch: 'feature/a',
+          target_branch: 'main',
+          web_url: 'https://gitlab.com/group/project/-/merge_requests/4',
+        }),
+      ])
+
+      const mergeRequest = await api.getMergeRequest('group/project', 4)
+
+      assert.strictEqual(mergeRequest.mergeStatus, '')
+    })
+  })
+
+  describe('getApprovals', () => {
+    it('maps the approval state and approver usernames', async () => {
+      const { api, fake } = createAPI([
+        jsonResponse({
+          approved: false,
+          approvals_required: 2,
+          approvals_left: 1,
+          approved_by: [
+            { user: { username: 'alice' } },
+            { user: { username: 'bob' } },
+            { user: null },
+          ],
+          user_has_approved: false,
+          user_can_approve: true,
+        }),
+      ])
+
+      const approvals = await api.getApprovals('group/project', 9)
+
+      assert.deepStrictEqual(approvals, {
+        approved: false,
+        approvalsRequired: 2,
+        approvalsLeft: 1,
+        approvedBy: ['alice', 'bob'],
+        userHasApproved: false,
+        userCanApprove: true,
+      })
+
+      assert.strictEqual(fake.calls.length, 1)
+      assert.strictEqual(
+        fake.calls[0].url,
+        'https://gitlab.com/api/v4/projects/group%2Fproject/merge_requests/9/approvals'
+      )
+    })
+
+    it('defaults missing fields', async () => {
+      const { api } = createAPI([jsonResponse({})])
+
+      const approvals = await api.getApprovals('group/project', 9)
+
+      assert.deepStrictEqual(approvals, {
+        approved: false,
+        approvalsRequired: 0,
+        approvalsLeft: 0,
+        approvedBy: [],
+        userHasApproved: false,
+        userCanApprove: false,
+      })
+    })
+  })
+
+  describe('approve', () => {
+    it('posts to the approve endpoint without a body', async () => {
+      const { api, fake } = createAPI([jsonResponse({})])
+
+      await api.approve('group/project', 9)
+
+      assert.strictEqual(fake.calls.length, 1)
+      const [call] = fake.calls
+      assert.strictEqual(
+        call.url,
+        'https://gitlab.com/api/v4/projects/group%2Fproject/merge_requests/9/approve'
+      )
+      assert.strictEqual(call.init?.method, 'POST')
+      assert.strictEqual(call.init?.body, undefined)
+    })
+
+    it('throws a GitLabAPIError with status 403 when not allowed', async () => {
+      const { api } = createAPI([
+        jsonResponse({ message: '403 Forbidden' }, { status: 403 }),
+      ])
+
+      await assert.rejects(api.approve('group/project', 9), error => {
+        assert.ok(error instanceof GitLabAPIError)
+        assert.strictEqual(error.status, 403)
+        assert.strictEqual(error.message, '403 Forbidden')
+        return true
+      })
+    })
+  })
+
+  describe('unapprove', () => {
+    it('posts to the unapprove endpoint without a body', async () => {
+      const { api, fake } = createAPI([jsonResponse({})])
+
+      await api.unapprove('group/project', 9)
+
+      assert.strictEqual(fake.calls.length, 1)
+      const [call] = fake.calls
+      assert.strictEqual(
+        call.url,
+        'https://gitlab.com/api/v4/projects/group%2Fproject/merge_requests/9/unapprove'
+      )
+      assert.strictEqual(call.init?.method, 'POST')
+      assert.strictEqual(call.init?.body, undefined)
+    })
+  })
+
+  describe('listNotes', () => {
+    it('requests ascending notes and follows pagination', async () => {
+      const { api, fake } = createAPI([
+        jsonResponse(
+          [
+            {
+              id: 1,
+              body: 'Looks good',
+              author: { username: 'alice' },
+              created_at: '2026-01-02T03:04:05Z',
+              system: false,
+            },
+          ],
+          { headers: { 'x-next-page': '2' } }
+        ),
+        jsonResponse([
+          {
+            id: 2,
+            body: 'added 1 commit',
+            author: { username: 'bob' },
+            created_at: '2026-01-03T03:04:05Z',
+            system: true,
+          },
+        ]),
+      ])
+
+      const notes = await api.listNotes('group/project', 9)
+
+      assert.deepStrictEqual(notes, [
+        {
+          id: 1,
+          body: 'Looks good',
+          author: 'alice',
+          createdAt: '2026-01-02T03:04:05Z',
+          system: false,
+        },
+        {
+          id: 2,
+          body: 'added 1 commit',
+          author: 'bob',
+          createdAt: '2026-01-03T03:04:05Z',
+          system: true,
+        },
+      ])
+
+      assert.strictEqual(fake.calls.length, 2)
+      for (const call of fake.calls) {
+        assert.strictEqual(
+          call.url.startsWith(
+            'https://gitlab.com/api/v4/projects/group%2Fproject/merge_requests/9/notes?'
+          ),
+          true
+        )
+        assert.strictEqual(searchParam(call.url, 'sort'), 'asc')
+        assert.strictEqual(searchParam(call.url, 'order_by'), 'created_at')
+        assert.strictEqual(searchParam(call.url, 'per_page'), '100')
+      }
+      assert.strictEqual(searchParam(fake.calls[0].url, 'page'), null)
+      assert.strictEqual(searchParam(fake.calls[1].url, 'page'), '2')
+    })
+
+    it('defaults missing note fields', async () => {
+      const { api } = createAPI([
+        jsonResponse([
+          {
+            id: 5,
+            body: '',
+            created_at: '2026-01-02T03:04:05Z',
+          },
+        ]),
+      ])
+
+      const notes = await api.listNotes('group/project', 9)
+
+      assert.deepStrictEqual(notes, [
+        {
+          id: 5,
+          body: '',
+          author: '',
+          createdAt: '2026-01-02T03:04:05Z',
+          system: false,
+        },
+      ])
+    })
+  })
+
+  describe('addNote', () => {
+    it('posts the body and maps the created note', async () => {
+      const { api, fake } = createAPI([
+        jsonResponse({
+          id: 12,
+          body: 'Thanks!',
+          author: { username: 'alice' },
+          created_at: '2026-01-04T03:04:05Z',
+          system: false,
+        }),
+      ])
+
+      const note = await api.addNote('group/project', 9, 'Thanks!')
+
+      assert.deepStrictEqual(note, {
+        id: 12,
+        body: 'Thanks!',
+        author: 'alice',
+        createdAt: '2026-01-04T03:04:05Z',
+        system: false,
+      })
+
+      assert.strictEqual(fake.calls.length, 1)
+      const [call] = fake.calls
+      assert.strictEqual(call.init?.method, 'POST')
+      assert.strictEqual(
+        call.url,
+        'https://gitlab.com/api/v4/projects/group%2Fproject/merge_requests/9/notes'
+      )
+      assert.strictEqual(header(call.init, 'Content-Type'), 'application/json')
+      assert.deepStrictEqual(JSON.parse(call.init?.body as string), {
+        body: 'Thanks!',
+      })
+    })
+  })
+
   describe('getLatestPipeline', () => {
     it('returns null when the project has no pipeline', async () => {
       const { api, fake } = createAPI([jsonResponse([])])
@@ -387,6 +690,51 @@ describe('arbor/gitlab/gitlab-api', () => {
         ref: 'feature/gitlab',
         sha: 'abc123',
         webUrl: 'https://gitlab.com/group/project/-/pipelines/321',
+      })
+    })
+  })
+
+  describe('getPipelineForSha', () => {
+    it('returns null when the commit has no pipeline', async () => {
+      const { api, fake } = createAPI([jsonResponse([])])
+
+      const pipeline = await api.getPipelineForSha('group/project', 'abc123')
+
+      assert.strictEqual(pipeline, null)
+      const url = fake.calls[0].url
+      assert.strictEqual(
+        url.startsWith(
+          'https://gitlab.com/api/v4/projects/group%2Fproject/pipelines?'
+        ),
+        true
+      )
+      assert.strictEqual(searchParam(url, 'sha'), 'abc123')
+      assert.strictEqual(searchParam(url, 'per_page'), '1')
+      assert.strictEqual(searchParam(url, 'order_by'), 'id')
+      assert.strictEqual(searchParam(url, 'sort'), 'desc')
+    })
+
+    it('maps the pipeline of the commit', async () => {
+      const { api } = createAPI([
+        jsonResponse([
+          {
+            id: 654,
+            status: 'failed',
+            ref: 'feature/gitlab',
+            sha: 'abc123',
+            web_url: 'https://gitlab.com/group/project/-/pipelines/654',
+          },
+        ]),
+      ])
+
+      const pipeline = await api.getPipelineForSha('group/project', 'abc123')
+
+      assert.deepStrictEqual(pipeline, {
+        id: 654,
+        status: 'failed',
+        ref: 'feature/gitlab',
+        sha: 'abc123',
+        webUrl: 'https://gitlab.com/group/project/-/pipelines/654',
       })
     })
   })

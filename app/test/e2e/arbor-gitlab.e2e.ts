@@ -29,6 +29,8 @@ interface IRecordedRequest {
 function createFakeGitLab() {
   const requests = new Array<IRecordedRequest>()
   const mergeRequests = new Array<Record<string, unknown>>()
+  const notes = new Array<Record<string, unknown>>()
+  let approved = false
   let baseUrl = ''
 
   const server = http.createServer((req, res) => {
@@ -47,19 +49,56 @@ function createFakeGitLab() {
     req.on('data', chunk => (raw += chunk))
     req.on('end', () => {
       const url = new URL(req.url ?? '/', baseUrl)
-      const body = raw.length > 0 ? JSON.parse(raw) : null
+      const isForm = (req.headers['content-type'] ?? '').includes(
+        'application/x-www-form-urlencoded'
+      )
+      const body =
+        raw.length === 0
+          ? null
+          : isForm
+          ? Object.fromEntries(new URLSearchParams(raw))
+          : JSON.parse(raw)
+      const send = (status: number, json: unknown) => {
+        res.writeHead(status, { ...cors, 'Content-Type': 'application/json' })
+        res.end(JSON.stringify(json))
+      }
+
       requests.push({
         method: req.method ?? '',
         url: url.pathname + url.search,
         body,
       })
 
-      const send = (status: number, json: unknown) => {
-        res.writeHead(status, { ...cors, 'Content-Type': 'application/json' })
-        res.end(JSON.stringify(json))
+      // OAuth: the authorization page approves right away and sends the
+      // browser back to Arbor's loopback redirect URI.
+      if (url.pathname === '/oauth/authorize') {
+        const redirect = new URL(url.searchParams.get('redirect_uri') ?? '')
+        redirect.searchParams.set('code', 'oauth-code')
+        redirect.searchParams.set('state', url.searchParams.get('state') ?? '')
+        res.writeHead(302, { Location: redirect.toString() })
+        res.end()
+        return
+      }
+      if (url.pathname === '/oauth/token') {
+        const valid =
+          body?.grant_type === 'authorization_code' &&
+          body?.code === 'oauth-code' &&
+          body?.client_id === 'arbor-e2e-app' &&
+          typeof body?.code_verifier === 'string'
+        send(
+          valid ? 200 : 400,
+          valid
+            ? {
+                access_token: token,
+                refresh_token: 'refresh',
+                expires_in: 7200,
+              }
+            : { error: 'invalid_grant' }
+        )
+        return
       }
 
-      if (req.headers['private-token'] !== token) {
+      if (req.headers.authorization !== `Bearer ${token}`) {
         send(401, { message: '401 Unauthorized' })
         return
       }
@@ -107,6 +146,65 @@ function createFakeGitLab() {
             m => source === null || m.source_branch === source
           )
         )
+      } else if (path === `${project}/merge_requests/1`) {
+        send(200, {
+          ...mergeRequests[0],
+          description: 'Adds the login page.',
+          has_conflicts: false,
+          detailed_merge_status: 'mergeable',
+        })
+      } else if (path === `${project}/merge_requests/1/approvals`) {
+        send(200, {
+          approved,
+          approvals_required: 1,
+          approvals_left: approved ? 0 : 1,
+          approved_by: approved ? [{ user: { username: 'arbor' } }] : [],
+          user_has_approved: approved,
+          user_can_approve: true,
+        })
+      } else if (path === `${project}/merge_requests/1/approve`) {
+        approved = true
+        send(201, {})
+      } else if (path === `${project}/merge_requests/1/unapprove`) {
+        approved = false
+        send(201, {})
+      } else if (
+        path === `${project}/merge_requests/1/notes` &&
+        req.method === 'POST'
+      ) {
+        const note = {
+          id: notes.length + 1,
+          body: body.body,
+          author: { username: 'arbor' },
+          created_at: new Date().toISOString(),
+          system: false,
+        }
+        notes.push(note)
+        send(201, note)
+      } else if (path === `${project}/merge_requests/1/notes`) {
+        send(200, [
+          {
+            id: 100,
+            body: 'added 1 commit',
+            author: { username: 'arbor' },
+            created_at: new Date().toISOString(),
+            system: true,
+          },
+          ...notes,
+        ])
+      } else if (
+        path === `${project}/pipelines` &&
+        url.searchParams.has('sha')
+      ) {
+        send(200, [
+          {
+            id: 8,
+            status: 'failed',
+            ref: branch,
+            sha: url.searchParams.get('sha'),
+            web_url: `${baseUrl}/${projectPath}/-/pipelines/8`,
+          },
+        ])
       } else if (path === `${project}/pipelines`) {
         send(200, [
           {
@@ -164,10 +262,15 @@ test.describe('Arbor GitLab', () => {
   let previousBranch = ''
 
   test.beforeAll(() => gitlab.start())
-  test.afterAll(async () => {
+  test.afterAll(async ({ app }) => {
     await gitlab.stop()
     git(['checkout', previousBranch])
     git(['remote', 'remove', 'gitlab'])
+    // Let Desktop notice the checkout before the next test file.
+    await app.evaluate(({ BrowserWindow }) => {
+      // eslint-disable-next-line no-loosely-typed-webcontents-ipc
+      BrowserWindow.getAllWindows()[0].webContents.send('focus')
+    })
   })
 
   test('prepares a repository with a self-hosted GitLab remote', async ({
@@ -209,13 +312,17 @@ test.describe('Arbor GitLab', () => {
   }) => {
     const tokenBox = dialog(page).locator('input[type="password"]')
     await tokenBox.fill('wrong')
-    await dialog(page).getByRole('button', { name: 'Sign in' }).click()
+    await dialog(page)
+      .getByRole('button', { name: 'Sign in', exact: true })
+      .click()
     await expect(dialog(page)).toContainText(/invalid token/i, {
       timeout: 15000,
     })
 
     await tokenBox.fill(token)
-    await dialog(page).getByRole('button', { name: 'Sign in' }).click()
+    await dialog(page)
+      .getByRole('button', { name: 'Sign in', exact: true })
+      .click()
     await expect(dialog(page).locator('.arbor-gitlab-header')).toContainText(
       '@arbor',
       { timeout: 15000 }
@@ -261,8 +368,113 @@ test.describe('Arbor GitLab', () => {
     )
   })
 
-  test('signs out and closes', async ({ mainWindow: page }) => {
+  test('gives the token to Git for push and pull', async ({
+    mainWindow: page,
+  }) => {
+    const endpoint = `${gitlab.baseUrl}/`
+    expect(
+      await page.evaluate(
+        e => localStorage.getItem(`genericGitAuth/username/${e}`),
+        endpoint
+      )
+    ).toBe('oauth2')
+  })
+
+  test('reviews the merge request', async ({ mainWindow: page }) => {
+    await dialog(page).getByText('Merge requests', { exact: true }).click()
+    await dialog(page).locator('.arbor-gitlab-mr-summary').click()
+
+    const detail = dialog(page).locator('.arbor-gitlab-mr-detail')
+    await expect(detail).toContainText('Adds the login page.', {
+      timeout: 15000,
+    })
+    await expect(detail.locator('.arbor-gitlab-approvals')).toContainText(
+      /1 approval required/i
+    )
+
+    await detail.locator('.arbor-gitlab-approve').click()
+    await expect(detail.locator('.arbor-gitlab-approvals')).toContainText(
+      'Approved by @arbor',
+      { timeout: 15000 }
+    )
+    await expect(detail.locator('.arbor-gitlab-revoke-approval')).toBeVisible()
+
+    // System notes (events) are not listed as comments.
+    await expect(detail.locator('.arbor-gitlab-note')).toHaveCount(0)
+    await detail.locator('.arbor-gitlab-note-draft').fill('Looks good!')
+    await detail.locator('.arbor-gitlab-add-note-button').click()
+    await expect(detail.locator('.arbor-gitlab-note')).toContainText(
+      'Looks good!',
+      { timeout: 15000 }
+    )
+    await dialog(page).screenshot({
+      path: test.info().outputPath('arbor-gitlab-review.png'),
+    })
+  })
+
+  test('signs out, which removes the Git credential', async ({
+    mainWindow: page,
+  }) => {
     // Signing out also removes the token from the OS credential store.
+    await dialog(page).getByRole('button', { name: 'Sign out' }).click()
+    await expect(dialog(page).locator('.arbor-gitlab-sign-in')).toBeVisible({
+      timeout: 15000,
+    })
+    expect(
+      await page.evaluate(
+        e => localStorage.getItem(`genericGitAuth/username/${e}`),
+        `${gitlab.baseUrl}/`
+      )
+    ).toBeNull()
+  })
+
+  test('signs in with the browser (OAuth)', async ({
+    app,
+    mainWindow: page,
+  }) => {
+    // Stand in for the browser: follow the authorization page's redirect to
+    // Arbor's loopback redirect URI.
+    await app.evaluate(({ shell }) => {
+      shell.openExternal = async (target: string) => {
+        await fetch(target)
+      }
+    })
+
+    const oauth = dialog(page).locator('.arbor-gitlab-oauth')
+    await oauth
+      .locator('.arbor-gitlab-application-id input')
+      .fill('arbor-e2e-app')
+    await oauth.locator('.arbor-gitlab-oauth-sign-in').click()
+
+    await expect(dialog(page).locator('.arbor-gitlab-header')).toContainText(
+      '@arbor',
+      { timeout: 30000 }
+    )
+    const exchange = gitlab.requests.find(r => r.url === '/oauth/token')
+    expect(exchange?.body?.code_verifier).toBeTruthy()
+  })
+
+  test('shows pipeline statuses in the graph', async ({ mainWindow: page }) => {
+    await page.keyboard.press('Escape')
+    await dialog(page).waitFor({ state: 'hidden', timeout: 15000 })
+
+    const graph = page.locator('.arbor-graph-view')
+    if ((await graph.count()) === 0) {
+      await page.getByRole('button', { name: 'Graph', exact: true }).click()
+    }
+    await graph.getByRole('button', { name: 'Refresh graph' }).click()
+
+    const tip = graph
+      .locator('.arbor-graph-row')
+      .filter({ has: page.locator('.arbor-graph-ref', { hasText: branch }) })
+    await expect(tip.locator('.arbor-graph-pipeline.failed')).toHaveCount(1, {
+      timeout: 15000,
+    })
+  })
+
+  test('signs out and closes', async ({ app, mainWindow: page }) => {
+    await clickAppMenuItem(app, 'arbor-gitlab')
+    await dialog(page).waitFor({ state: 'visible', timeout: 15000 })
     await dialog(page).getByRole('button', { name: 'Sign out' }).click()
     await expect(dialog(page).locator('.arbor-gitlab-sign-in')).toBeVisible({
       timeout: 15000,

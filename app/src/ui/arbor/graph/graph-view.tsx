@@ -27,6 +27,7 @@ import * as octicons from '../../octicons/octicons.generated'
 import { writeClipboardText } from '../../main-process-proxy'
 import { doesCommitMatchFilter } from './graph-filter'
 import { ArborGraphSidebar } from './graph-sidebar'
+import { GraphPipelineStatus, loadGraphPipelines } from './graph-pipelines'
 import {
   GraphRowHeight,
   graphRowNode,
@@ -43,6 +44,8 @@ export interface IArborGraphViewProps {
   readonly changedFiles: number
   /** Show the diff of the uncommitted changes instead of the graph. */
   readonly onShowChanges: () => void
+  /** Changes whenever HEAD moves (checkout, commit, reset…). */
+  readonly headKey?: string
 }
 
 /** Commits loaded per page. */
@@ -70,6 +73,8 @@ interface IArborGraphViewState {
   readonly currentBranch: string | null
   /** Full message of the selected commit, once loaded. */
   readonly message: string | null
+  /** GitLab pipeline status of branch and tag tips, when available. */
+  readonly pipelines: ReadonlyMap<string, GraphPipelineStatus>
   /** Whether the branches, remotes and tags panel is shown. */
   readonly showRefsPanel: boolean
   /** Row to scroll to, e.g. after picking a ref in the panel. */
@@ -109,6 +114,7 @@ export class ArborGraphView extends React.Component<
       filter: '',
       currentBranch: null,
       message: null,
+      pipelines: new Map(),
       // Like GitKraken's left panel, but only open by default on wide windows.
       showRefsPanel: window.innerWidth >= 1400,
     }
@@ -125,7 +131,10 @@ export class ArborGraphView extends React.Component<
 
   public componentDidUpdate(prevProps: IArborGraphViewProps) {
     // A commit, checkout or new change in the Changes tab updates the graph.
-    if (prevProps.changedFiles !== this.props.changedFiles) {
+    if (
+      prevProps.changedFiles !== this.props.changedFiles ||
+      prevProps.headKey !== this.props.headKey
+    ) {
       this.reload()
     }
   }
@@ -185,6 +194,7 @@ export class ArborGraphView extends React.Component<
       }))
       if (loaded === 0 && items.length > 0) {
         this.loadMessage(items[0].sha)
+        this.loadPipelines(items, generation)
       }
     } catch (e) {
       log.error(
@@ -227,6 +237,18 @@ export class ArborGraphView extends React.Component<
       isHead: false,
     }
     return [wip, ...page]
+  }
+
+  /** Show the GitLab pipeline status of the commits branches and tags point at. */
+  private async loadPipelines(
+    commits: ReadonlyArray<IGraphCommit>,
+    generation: number
+  ) {
+    const tips = commits.filter(c => c.refs.length > 0).map(c => c.sha)
+    const pipelines = await loadGraphPipelines(this.props.repository, tips)
+    if (this.isMounted && generation === this.loadGeneration) {
+      this.setState({ pipelines })
+    }
   }
 
   private async loadMessage(sha: string) {
@@ -547,13 +569,32 @@ export class ArborGraphView extends React.Component<
         <span className="arbor-graph-col graph">
           {this.renderGraphCell(row, commit)}
         </span>
-        <span className="arbor-graph-col message">{commit.summary}</span>
+        <span className="arbor-graph-col message">
+          {this.renderPipeline(commit.sha)}
+          {commit.summary}
+        </span>
         <span className="arbor-graph-col author">{commit.authorName}</span>
         <span className="arbor-graph-col date">
           {isWip ? null : <RelativeTime date={new Date(commit.authorDate)} />}
         </span>
         <span className="arbor-graph-col sha">{commit.shortSha}</span>
       </div>
+    )
+  }
+
+  private renderPipeline(sha: string) {
+    const status = this.state.pipelines.get(sha)
+    if (status === undefined) {
+      return null
+    }
+    const label =
+      status === 'other'
+        ? 'Pipeline'
+        : `Pipeline ${status === 'running' ? 'running' : status}`
+    return (
+      <span className={`arbor-graph-pipeline ${status}`}>
+        <span className="sr-only">{label}</span>
+      </span>
     )
   }
 
@@ -711,6 +752,7 @@ export class ArborGraphView extends React.Component<
                 getRowAriaLabel={this.getRowAriaLabel}
                 invalidationProps={{
                   rows,
+                  pipelines: this.state.pipelines,
                   filter,
                   currentBranch: this.state.currentBranch,
                   maxWidth: this.state.maxWidth,
