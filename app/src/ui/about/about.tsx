@@ -89,6 +89,12 @@ class UpdateInfo extends React.Component<IUpdateInfoProps> {
  */
 export class About extends React.Component<IAboutProps> {
   private get canCheckForUpdates() {
+    // Arbor: without an update feed (ARBOR_UPDATES_URL at build time) there's
+    // nothing to check, so no update button, details or "last check" error.
+    if (__UPDATES_URL__ === '') {
+      return false
+    }
+
     return (
       __RELEASE_CHANNEL__ !== 'development' ||
       this.props.allowDevelopment === true
@@ -142,7 +148,8 @@ export class About extends React.Component<IAboutProps> {
   }
 
   private renderUpdateDetails() {
-    if (__LINUX__) {
+    // Arbor: without an update feed, renderBetaLink says updates are off.
+    if (__LINUX__ || __UPDATES_URL__ === '') {
       return null
     }
 
@@ -231,6 +238,19 @@ export class About extends React.Component<IAboutProps> {
   }
 
   private renderBetaLink() {
+    // Arbor: point to Arbor's releases rather than GitHub Desktop's beta.
+    if (__UPDATES_URL__ === '') {
+      return (
+        <div className="arbor-updates">
+          <p className="no-padding">Automatic updates are turned off.</p>
+          <p className="no-padding">
+            Get new versions of Arbor from its{' '}
+            <LinkButton uri={ReleaseNotesUri}>releases page</LinkButton>
+          </p>
+        </div>
+      )
+    }
+
     if (__RELEASE_CHANNEL__ === 'beta') {
       return
     }

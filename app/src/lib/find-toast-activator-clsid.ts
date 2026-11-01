@@ -16,10 +16,11 @@ export function findToastActivatorClsid() {
       'Windows',
       'Start Menu',
       'Programs',
-      'GitHub, Inc',
-      'GitHub Desktop.lnk'
+      // Arbor: the shortcuts Squirrel creates for Arbor (company, product).
+      'Arbor contributors',
+      'Arbor.lnk'
     ),
-    path.join(os.homedir(), 'Desktop', 'GitHub Desktop.lnk'),
+    path.join(os.homedir(), 'Desktop', 'Arbor.lnk'),
   ]
 
   for (const shortcutPath of shortcutPaths) {

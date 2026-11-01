@@ -76,9 +76,9 @@ export class Advanced extends React.Component<
 
   private reportDesktopUsageLabel() {
     return (
+      // Arbor: usage stats are never sent (see stats-store.ts).
       <span>
-        Help GitHub Desktop improve by submitting{' '}
-        <LinkButton uri={SamplesURL}>usage stats</LinkButton>
+        Arbor never sends <LinkButton uri={SamplesURL}>usage stats</LinkButton>
       </span>
     )
   }
@@ -116,11 +116,13 @@ export class Advanced extends React.Component<
           <Checkbox
             label={this.reportDesktopUsageLabel()}
             value={
-              this.state.optOutOfUsageTracking
+              // Arbor: nothing is ever sent, whatever the stored choice.
+              this.state.optOutOfUsageTracking || true
                 ? CheckboxValue.Off
                 : CheckboxValue.On
             }
             onChange={this.onReportingOptOutChanged}
+            disabled={true}
           />
         </div>
         <h2>Network and credentials</h2>

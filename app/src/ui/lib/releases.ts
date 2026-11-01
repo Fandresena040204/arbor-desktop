@@ -1,4 +1,3 @@
+// Arbor: Arbor's releases, not GitHub Desktop's release notes.
 export const ReleaseNotesUri =
-  __RELEASE_CHANNEL__ === 'beta'
-    ? 'https://desktop.github.com/release-notes/?env=beta'
-    : 'https://desktop.github.com/release-notes/'
+  'https://github.com/Fandresena040204/arbor-desktop/releases'

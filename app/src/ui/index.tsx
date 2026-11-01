@@ -254,7 +254,10 @@ const cloningRepositoriesStore = new CloningRepositoriesStore()
 const issuesStore = new IssuesStore(new IssuesDatabase('IssuesDatabase'))
 const statsStore = new StatsStore(
   new StatsDatabase('StatsDatabase'),
-  new UiActivityMonitor()
+  new UiActivityMonitor(),
+  // Arbor: usage stats are never sent to GitHub (its endpoints are GitHub
+  // Desktop's); they're only counted locally.
+  async () => new Response(null, { status: 204 })
 )
 
 const accountsStore = new AccountsStore(localStorage, TokenStore)

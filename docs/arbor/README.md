@@ -35,6 +35,9 @@ that adds GitLab support, including self-hosted instances, and advanced Git tool
 | Name / identifiers | `productName` Arbor, `bundleID` `dev.arbor.desktop`, Windows id `ArborDesktop`. It installs alongside GitHub Desktop. |
 | Logo | `branding/make-logo.py` generates every asset from one geometry: app icons (`.ico`, `.icns`, `.png`), the About dialog logos, the Windows installer splash, the macOS 26 `icon-logo.icon` layers and the SVG sources. The title bar uses the monochrome glyph (`app/src/ui/arbor/arbor-logo.tsx`). The welcome flow, About and app menus say Arbor. |
 | Auto-update | Disabled. The official update server would replace Arbor with GitHub Desktop. Set `ARBOR_UPDATES_URL` at build time to enable a custom feed. |
+| Windows identity | App User Model ID `com.squirrel.ArborDesktop.ArborDesktop` (also in dev builds, which used GitHub Desktop's and were grouped with it in the taskbar, with its icon); notifications use Arbor's shortcuts and toast activator CLSID. |
+| Usage stats | Never sent: the app gives the stats store a no-op sender (GitHub's endpoints are GitHub Desktop's). The welcome flow and Preferences say so. |
+| About | Without an update feed it says automatic updates are off and links to Arbor's releases, instead of an update error. |
 
 Not changed yet: the `x-github-client` and `x-github-desktop-auth` URL protocols
 (they are needed for GitHub OAuth login).

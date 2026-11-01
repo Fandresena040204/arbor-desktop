@@ -124,8 +124,11 @@ if (__DARWIN__) {
 
 // On Windows, in order to get notifications properly working for dev builds,
 // we'll want to set the right App User Model ID from production builds.
+// Arbor: Arbor's own ID (com.squirrel.<package>.<exe>). Windows groups taskbar
+// entries and picks their icon by this ID, so GitHub Desktop's made the dev
+// build show up as GitHub Desktop.
 if (__WIN32__ && __DEV__) {
-  app.setAppUserModelId('com.squirrel.GitHubDesktop.GitHubDesktop')
+  app.setAppUserModelId('com.squirrel.ArborDesktop.ArborDesktop')
 }
 
 app.on('window-all-closed', () => {
