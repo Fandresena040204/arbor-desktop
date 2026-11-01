@@ -183,6 +183,24 @@ export class SignInStore extends TypedBaseStore<SignInState | null> {
   }
 
   /**
+   * Arbor: sign in to GitHub.com or a GitHub Enterprise server with a
+   * personal access token instead of the browser. Throws when the token is
+   * rejected or can't be stored.
+   */
+  public async arborSignInWithToken(
+    endpoint: string,
+    token: string
+  ): Promise<Account> {
+    const account = await fetchUser(endpoint, token, true)
+    const stored = await this.accountStore.addAccount(account)
+    if (stored === null) {
+      throw new Error('Unable to store the account token in secure storage.')
+    }
+    this.emitAuthenticate(stored)
+    return stored
+  }
+
+  /**
    * Registers an event handler which will be invoked whenever
    * a user has successfully completed a sign-in process.
    */

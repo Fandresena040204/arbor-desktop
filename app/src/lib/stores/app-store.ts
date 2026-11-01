@@ -8273,6 +8273,11 @@ export class AppStore extends TypedBaseStore<IAppState> {
     return Promise.resolve()
   }
 
+  // Arbor: sign in to GitHub with a personal access token.
+  public _arborSignInWithToken(endpoint: string, token: string) {
+    return this.signInStore.arborSignInWithToken(endpoint, token)
+  }
+
   public _beginDotComSignIn(resultCallback?: (result: SignInResult) => void) {
     return this.signInStore.beginDotComSignIn(resultCallback)
   }

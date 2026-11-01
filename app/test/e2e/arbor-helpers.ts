@@ -19,7 +19,7 @@ export async function openSmokeRepository(page: Page) {
   // The app is shared by every test file of the worker, so the welcome flow
   // has only to be completed by the first one.
   await page
-    .locator('#welcome, #desktop-app-toolbar')
+    .locator('#welcome, #desktop-app-toolbar, #no-repositories')
     .first()
     .waitFor({ state: 'visible', timeout: 30000 })
   if (

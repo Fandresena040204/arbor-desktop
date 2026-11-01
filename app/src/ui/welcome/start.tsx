@@ -48,12 +48,20 @@ export class Start extends React.Component<IStartProps, {}> {
           )}
 
           <div className="welcome-main-buttons">
+            {/* Arbor: GitLab first, GitHub second. */}
             <Button
               type="submit"
+              className="arbor-sign-in-gitlab"
+              disabled={this.props.loadingBrowserAuth}
+              onClick={this.signInToGitLab}
+              autoFocus={true}
+            >
+              Sign in to GitLab
+            </Button>
+            <Button
               className="button-with-icon"
               disabled={this.props.loadingBrowserAuth}
               onClick={this.signInWithBrowser}
-              autoFocus={true}
               role="link"
             >
               {this.props.loadingBrowserAuth && <Loading />}
@@ -68,15 +76,26 @@ export class Start extends React.Component<IStartProps, {}> {
               </Button>
             )}
           </div>
+          {/* Arbor: GitHub sign-in with a personal access token. */}
+          <p className="welcome-text arbor-github-token-sign-in">
+            <LinkButton onClick={this.signInToGitHubWithToken}>
+              Sign in to GitHub with a token
+            </LinkButton>
+          </p>
           <div className="skip-action-container">
             <p className="welcome-text">
-              New to GitHub?{' '}
+              New here? Create a free{' '}
+              <LinkButton uri="https://gitlab.com/users/sign_up">
+                GitLab
+              </LinkButton>{' '}
+              or{' '}
               <LinkButton
                 uri={CreateAccountURL}
                 className="create-account-link"
               >
-                Create your free account.
-              </LinkButton>
+                GitHub
+              </LinkButton>{' '}
+              account.
             </p>
             <LinkButton className="skip-button" onClick={this.skip}>
               Skip this step
@@ -113,6 +132,15 @@ export class Start extends React.Component<IStartProps, {}> {
 
   private cancelBrowserAuth = () => {
     this.props.advance(WelcomeStep.Start)
+  }
+
+  private signInToGitHubWithToken = () => {
+    this.props.advance(WelcomeStep.SignInToGitHubWithToken)
+  }
+
+  // Arbor: GitLab sign-in step.
+  private signInToGitLab = () => {
+    this.props.advance(WelcomeStep.SignInToGitLab)
   }
 
   private signInToEnterprise = () => {

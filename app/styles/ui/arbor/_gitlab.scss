@@ -532,3 +532,45 @@ dialog#arbor-gitlab {
     }
   }
 }
+
+// Arbor: GitLab and GitHub token sign-in steps of the welcome flow.
+#sign-in-gitlab,
+#sign-in-github-token {
+  .arbor-welcome-gitlab {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--spacing);
+    max-width: 440px;
+
+    .text-box-component {
+      width: 100%;
+    }
+
+    h2 {
+      margin: var(--spacing) 0 0;
+      font-size: var(--font-size-md);
+    }
+
+    code {
+      font-family: var(--font-family-monospace);
+      overflow-wrap: anywhere;
+    }
+  }
+
+  .arbor-welcome-gitlab-hint {
+    margin: 0;
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary-color);
+    overflow-wrap: anywhere;
+  }
+
+  .arbor-welcome-gitlab-error {
+    margin: 0;
+    color: var(--error-color);
+  }
+
+  .arbor-welcome-gitlab-actions {
+    margin-top: var(--spacing);
+  }
+}

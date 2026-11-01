@@ -1,4 +1,7 @@
 import * as React from 'react'
+// Arbor: GitLab sign-in in the welcome flow.
+import { GitLabWelcomeSignIn } from '../arbor/gitlab/gitlab-welcome-sign-in'
+import { GitHubTokenSignIn } from '../arbor/github-token-sign-in'
 import classNames from 'classnames'
 
 import { Dispatcher } from '../dispatcher'
@@ -17,6 +20,10 @@ export enum WelcomeStep {
   Start = 'Start',
   SignInToDotComWithBrowser = 'SignInToDotComWithBrowser',
   SignInToEnterprise = 'SignInToEnterprise',
+  // Arbor: sign in to GitLab (gitlab.com or self-hosted).
+  SignInToGitLab = 'SignInToGitLab',
+  // Arbor: sign in to GitHub with a personal access token.
+  SignInToGitHubWithToken = 'SignInToGitHubWithToken',
   ConfigureGit = 'ConfigureGit',
 }
 
@@ -181,6 +188,24 @@ export class Welcome extends React.Component<IWelcomeProps, IWelcomeState> {
           />
         )
 
+      // Arbor: sign in to GitLab, then configure Git like after GitHub.
+      case WelcomeStep.SignInToGitLab:
+        return (
+          <GitLabWelcomeSignIn
+            onSignedIn={this.onGitLabSignedIn}
+            onCancel={this.onGitLabSignInCancelled}
+          />
+        )
+
+      case WelcomeStep.SignInToGitHubWithToken:
+        return (
+          <GitHubTokenSignIn
+            dispatcher={this.props.dispatcher}
+            onSignedIn={this.onGitLabSignedIn}
+            onCancel={this.onGitLabSignInCancelled}
+          />
+        )
+
       case WelcomeStep.ConfigureGit:
         return (
           <ConfigureGit
@@ -196,6 +221,9 @@ export class Welcome extends React.Component<IWelcomeProps, IWelcomeState> {
         return assertNever(step, `Unknown welcome step: ${step}`)
     }
   }
+
+  private onGitLabSignedIn = () => this.advanceToStep(WelcomeStep.ConfigureGit)
+  private onGitLabSignInCancelled = () => this.advanceToStep(WelcomeStep.Start)
 
   private advanceToStep = (step: WelcomeStep) => {
     log.info(`[Welcome] advancing to step: ${step}`)

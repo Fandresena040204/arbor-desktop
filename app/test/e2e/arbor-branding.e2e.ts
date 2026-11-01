@@ -8,11 +8,20 @@
 import * as fs from 'fs'
 import * as path from 'path'
 import { test, expect } from './e2e-fixtures'
+import { execFileSync } from 'child_process'
 import { clickAppMenuItem, openSmokeRepository } from './arbor-helpers'
+import { createFakeGitLab, projectPath, token } from './arbor-fake-gitlab'
+import { smokeRepoPath } from './test-helpers'
 
 test.describe.configure({ mode: 'serial' })
 
 test.describe('Arbor branding', () => {
+  const gitlab = createFakeGitLab()
+  let welcomeShown = false
+
+  test.beforeAll(() => gitlab.start())
+  test.afterAll(() => gitlab.stop())
+
   test('welcomes the user to Arbor', async ({ mainWindow: page }) => {
     const welcome = page.locator('#start')
     // A previous test file sharing the app may have completed the flow.
@@ -20,6 +29,7 @@ test.describe('Arbor branding', () => {
       .waitFor({ state: 'visible', timeout: 15000 })
       .then(() => true)
       .catch(() => false)
+    welcomeShown = shown
     test.skip(!shown, 'The welcome flow was completed by a previous test file')
     await expect(welcome.locator('.welcome-title')).toHaveText(
       'Welcome to Arbor'
@@ -28,6 +38,65 @@ test.describe('Arbor branding', () => {
     await page.screenshot({
       path: test.info().outputPath('arbor-welcome.png'),
     })
+  })
+
+  test('offers a GitHub sign-in with a personal access token', async ({
+    mainWindow: page,
+  }) => {
+    test.skip(!welcomeShown, 'The welcome flow was already completed')
+    await page.getByText('Sign in to GitHub with a token').click()
+    const form = page.locator('#sign-in-github-token')
+    await form.waitFor({ state: 'visible', timeout: 15000 })
+
+    // A server that isn't there: the sign-in fails with a clear message.
+    await form.getByText('GitHub Enterprise', { exact: true }).click()
+    await form.getByLabel('GitHub Enterprise address').fill('127.0.0.1:9')
+    await form.locator('input[type="password"]').fill('ghp_not_a_real_token')
+    await form.getByRole('button', { name: 'Sign in', exact: true }).click()
+    await expect(form.locator('[role="alert"]')).toContainText(
+      'Unable to sign in with this token',
+      { timeout: 30000 }
+    )
+
+    await form.getByRole('button', { name: 'Cancel' }).click()
+    await page.locator('#start').waitFor({ state: 'visible', timeout: 15000 })
+  })
+
+  test('signs in to a GitLab instance from the welcome flow', async ({
+    mainWindow: page,
+  }) => {
+    test.skip(!welcomeShown, 'The welcome flow was already completed')
+    await page.getByRole('button', { name: 'Sign in to GitLab' }).click()
+    const form = page.locator('#sign-in-gitlab')
+    await form.waitFor({ state: 'visible', timeout: 15000 })
+    await expect(form.getByLabel('GitLab instance URL')).toHaveValue(
+      'https://gitlab.com'
+    )
+
+    await form.getByLabel('GitLab instance URL').fill(gitlab.baseUrl)
+    const tokenBox = form.locator('input[type="password"]')
+    await tokenBox.fill('wrong')
+    await form.getByRole('button', { name: 'Sign in with token' }).click()
+    await expect(form.locator('[role="alert"]')).toContainText(
+      /invalid token/i,
+      { timeout: 15000 }
+    )
+
+    await tokenBox.fill(token)
+    await form.getByRole('button', { name: 'Sign in with token' }).click()
+
+    // Signed in: on to configuring Git, like after a GitHub sign-in.
+    const name = page.locator('input[placeholder="Your Name"]')
+    await name.waitFor({ state: 'visible', timeout: 15000 })
+    if ((await name.inputValue()) === '') {
+      await name.fill('Arbor E2E')
+    }
+    const email = page.locator('input[placeholder="your-email@example.com"]')
+    if ((await email.inputValue()) === '') {
+      await email.fill('arbor-e2e@example.com')
+    }
+    await page.locator('button:has-text("Finish")').click()
+    await page.waitForSelector('#welcome', { state: 'hidden', timeout: 15000 })
   })
 
   test('shows the Arbor logo in the title bar and the About dialog', async ({
@@ -68,5 +137,33 @@ test.describe('Arbor branding', () => {
     })
     await page.keyboard.press('Escape')
     await about.waitFor({ state: 'hidden', timeout: 15000 })
+  })
+
+  test('the GitLab account from the welcome flow is usable, then signs out', async ({
+    app,
+    mainWindow: page,
+  }) => {
+    test.skip(!welcomeShown, 'The welcome flow was already completed')
+    const git = (args: ReadonlyArray<string>) =>
+      execFileSync('git', [...args], { cwd: smokeRepoPath, encoding: 'utf8' })
+    git(['remote', 'add', 'gitlab', `${gitlab.baseUrl}/${projectPath}.git`])
+    try {
+      await clickAppMenuItem(app, 'arbor-gitlab')
+      const dialog = page.locator('dialog#arbor-gitlab')
+      // Already signed in thanks to the welcome flow.
+      await expect(dialog.locator('.arbor-gitlab-header')).toContainText(
+        '@arbor',
+        { timeout: 15000 }
+      )
+      // Sign out, which also removes the token from the credential store.
+      await dialog.getByRole('button', { name: 'Sign out' }).click()
+      await expect(dialog.locator('.arbor-gitlab-sign-in')).toBeVisible({
+        timeout: 15000,
+      })
+      await page.keyboard.press('Escape')
+      await dialog.waitFor({ state: 'hidden', timeout: 15000 })
+    } finally {
+      git(['remote', 'remove', 'gitlab'])
+    }
   })
 })

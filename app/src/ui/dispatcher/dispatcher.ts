@@ -1856,6 +1856,12 @@ export class Dispatcher {
     return this.appStore._setSignInEndpoint(url, isEndpointFromGit)
   }
 
+  // Arbor: sign in to GitHub.com or GitHub Enterprise with a personal access
+  // token. Rejects when the token is invalid.
+  public arborSignInWithToken(endpoint: string, token: string) {
+    return this.appStore._arborSignInWithToken(endpoint, token)
+  }
+
   public beginDotComSignIn(resultCallback: (result: SignInResult) => void) {
     this.appStore._beginDotComSignIn(resultCallback)
   }
